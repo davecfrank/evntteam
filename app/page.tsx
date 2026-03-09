@@ -13,7 +13,7 @@ export default function Home() {
       padding: '40px 20px'
     }}>
       <h1 style={{ fontSize: '64px', fontWeight: 900, marginBottom: '16px' }}>
-      Event<span style={{ color: '#FF4D00', marginLeft: '-1px' }}>.Team</span>
+      Evnt<span style={{ color: '#FF4D00', marginLeft: '-1px' }}>.Team</span>
         </h1>
       <p style={{ fontSize: '20px', color: '#888', marginBottom: '40px', maxWidth: '500px' }}>
         The all-in-one app for planning unforgettable experiences with your crew.
