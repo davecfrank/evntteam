@@ -13,11 +13,43 @@ export default function Home() {
       padding: '40px 20px'
     }}>
       <h1 style={{ fontSize: '64px', fontWeight: 900, marginBottom: '16px' }}>
-      Evnt<span style={{ color: '#FF4D00', marginLeft: '-1px' }}>.Team</span>
-        </h1>
+        Evnt<span style={{ color: '#FF4D00', marginLeft: '-4px' }}>.Team</span>
+      </h1>
       <p style={{ fontSize: '20px', color: '#888', marginBottom: '40px', maxWidth: '500px' }}>
         The all-in-one app for planning unforgettable experiences with your crew.
       </p>
+
+      {/* Feature Tiles */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '16px',
+        maxWidth: '500px',
+        width: '100%',
+        marginBottom: '40px'
+      }}>
+        {[
+          { icon: '🎉', title: 'Events', desc: 'Create your own group event.' },
+          { icon: '🗓', title: 'Itineraries', desc: 'Build a day-by-day plan for your group' },
+          { icon: '🗳', title: 'Group Voting', desc: 'Let everyone vote on activities, restaurants and more' },
+          { icon: '💬', title: 'Group Chats', desc: 'Message your crew and create subgroups in the app' },
+        ].map((tile) => (
+          <div key={tile.title} style={{
+            background: '#161616',
+            border: '1px solid #2A2A2A',
+            borderRadius: '14px',
+            padding: '20px',
+            textAlign: 'left',
+            transition: 'border-color 0.2s',
+          }}>
+            <div style={{ fontSize: '28px', marginBottom: '10px' }}>{tile.icon}</div>
+            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>{tile.title}</div>
+            <div style={{ fontSize: '12px', color: '#666', lineHeight: '1.5' }}>{tile.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Email Capture */}
       <input
         type="email"
         placeholder="Enter your email for early access"
