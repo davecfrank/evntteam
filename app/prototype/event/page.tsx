@@ -18,6 +18,7 @@ function EventPage() {
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [inviteRole, setInviteRole] = useState('member')
 
   useEffect(() => {
     async function load() {
@@ -76,7 +77,8 @@ function EventPage() {
     await supabase.from('event_members').insert({
       event_id: eventId,
       user_email: inviteEmail.trim(),
-      role: 'member'
+      role: inviteRole,
+      role_level: inviteRole,
     })
     setMembers(prev => [...prev, { user_email: inviteEmail.trim(), role: 'member' }])
     setInviteEmail('')
@@ -190,7 +192,9 @@ function EventPage() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>{member.user_email}</div>
-                    <div style={{ fontSize: '11px', color: '#666', fontWeight: 700 }}>Member · Invited</div>
+                    <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>
+  {member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited
+</div>
                   </div>
                 </div>
               ))}
@@ -276,7 +280,20 @@ function EventPage() {
               <div style={{ fontSize: '11px', color: '#666', fontWeight: 700 }}>OR INVITE BY EMAIL</div>
               <div style={{ flex: 1, height: '1px', background: '#2A2A2A' }}></div>
             </div>
-
+            <div style={{ marginBottom: '16px' }}>
+  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Invite As</label>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    {[
+      { value: 'cohost', label: '⭐ Co-host', desc: 'Can manage event' },
+      { value: 'member', label: '👤 Member', desc: 'Standard access' },
+    ].map(option => (
+      <div key={option.value} onClick={() => setInviteRole(option.value)} style={{ flex: 1, padding: '10px', background: inviteRole === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${inviteRole === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
+        <div style={{ fontSize: '11px', color: inviteRole === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
+      </div>
+    ))}
+  </div>
+</div>
             <input
               value={inviteEmail}
               onChange={e => setInviteEmail(e.target.value)}
