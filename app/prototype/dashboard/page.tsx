@@ -15,15 +15,17 @@ export default function Dashboard() {
   const [eventTime, setEventTime] = useState('')
   const [eventType, setEventType] = useState('Birthday')
   const [invitePermission, setInvitePermission] = useState('admin_only')
+  const [requiresFlights, setRequiresFlights] = useState(false)
+  const [requiresLodging, setRequiresLodging] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [saving, setSaving] = useState(false)
 
   const eventTypes = [
     { label: 'Birthday', emoji: '🎂' },
-    { label: 'Bachelor', emoji: '🎉' },
+    { label: 'Bachelor / Bachelorette', emoji: '🎉' },
     { label: 'Vacation', emoji: '☀️' },
     { label: 'Wedding', emoji: '💒' },
-    { label: 'Holiday', emoji: '🎄' },
+    { label: 'Business', emoji: '💼' },
     { label: 'Other', emoji: '✨' },
   ]
 
@@ -47,13 +49,22 @@ export default function Dashboard() {
     setSaving(true)
     const { data, error } = await supabase
       .from('events')
-      .insert({ name, destination, dates, event_type: eventType, invite_permission: invitePermission, owner_id: user.id })
+      .insert({
+        name, destination, dates,
+        event_type: eventType,
+        invite_permission: invitePermission,
+        owner_id: user.id,
+        requires_flights: requiresFlights,
+        requires_lodging: requiresLodging,
+      })
       .select()
       .single()
     if (!error && data) {
       setEvents(prev => [data, ...prev])
       setShowModal(false)
-      setName(''); setDestination(''); setDates(''); setEndDate(''); setEventTime(''); setInvitePermission('admin_only')
+      setName(''); setDestination(''); setDates(''); setEndDate('')
+      setEventTime(''); setInvitePermission('admin_only')
+      setRequiresFlights(false); setRequiresLodging(false)
     }
     setSaving(false)
   }
@@ -72,6 +83,27 @@ export default function Dashboard() {
     if (diff === 1) return 'Tomorrow!'
     return `${diff} days away`
   }
+
+  const Toggle = ({ value, onChange, label, desc, color }: { value: boolean, onChange: (v: boolean) => void, label: string, desc: string, color: string }) => (
+    <div
+      onClick={() => onChange(!value)}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px',
+        background: value ? `rgba(${color}, 0.08)` : '#0A0A0A',
+        border: `1px solid ${value ? `rgb(${color})` : '#2A2A2A'}`,
+        borderRadius: '10px', cursor: 'pointer',
+      }}
+    >
+      <div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: value ? `rgb(${color})` : '#F0F0F0' }}>{label}</div>
+        <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>{desc}</div>
+      </div>
+      <div style={{ width: '40px', height: '22px', borderRadius: '11px', background: value ? `rgb(${color})` : '#2A2A2A', position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '12px' }}>
+        <div style={{ position: 'absolute', top: '3px', left: value ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+      </div>
+    </div>
+  )
 
   return (
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif' }}>
@@ -116,11 +148,23 @@ export default function Dashboard() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{event.name}</div>
                   <div style={{ fontSize: '12px', color: '#666' }}>{event.destination || 'No location'} {event.dates ? `· ${event.dates}` : ''}</div>
-                  {getCountdown(event.dates) && (
-                    <div style={{ marginTop: '6px', display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
-                      ⏳ {getCountdown(event.dates)}
-                    </div>
-                  )}
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    {getCountdown(event.dates) && (
+                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
+                        ⏳ {getCountdown(event.dates)}
+                      </div>
+                    )}
+                    {event.requires_flights && (
+                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>
+                        ✈️ Flights
+                      </div>
+                    )}
+                    {event.requires_lodging && (
+                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(180,100,255,0.1)', color: '#B464FF' }}>
+                        🏨 Lodging
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ fontSize: '18px', color: '#666' }}>→</div>
               </div>
@@ -133,7 +177,7 @@ export default function Dashboard() {
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
         {[
           { icon: '⌂', label: 'Home', path: '/prototype/dashboard', active: true },
-          { icon: '🗓', label: 'Plan', path: '/prototype/itinerary' },
+          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
           { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
           { icon: '💬', label: 'Chat', path: '/prototype/chat' },
           { icon: '👤', label: 'Profile', path: '/prototype/profile' },
@@ -148,8 +192,8 @@ export default function Dashboard() {
       {/* Create Event Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }}></div>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
             <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '20px' }}>Create Event ✦</h2>
 
             <div style={{ marginBottom: '14px' }}>
@@ -178,22 +222,7 @@ export default function Dashboard() {
               <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Who Can Invite?</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {[
-                  { value: 'admin_only', label: '👑 Admin Only', desc: 'Only you can invite' },
-                  { value: 'anyone', label: '👥 Anyone', desc: 'All members can invite' },
-                ].map(option => (
-                  <div key={option.value} onClick={() => setInvitePermission(option.value)} style={{ flex: 1, padding: '12px', background: invitePermission === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${invitePermission === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
-                    <div style={{ fontSize: '18px', marginBottom: '4px' }}>{option.label}</div>
-                    <div style={{ fontSize: '11px', color: invitePermission === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '14px' }}>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Event Type</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                 {eventTypes.map(type => (
@@ -204,6 +233,37 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            <div style={{ marginBottom: '14px' }}>
+  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Who Can Invite?</label>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    {[
+      { value: 'admin_only', label: '👑 Host', desc: 'Only you' },
+      { value: 'cohost', label: '⭐ Co-hosts', desc: 'Host + co-hosts' },
+      { value: 'anyone', label: '👥 Anyone', desc: 'All members' },
+    ].map(option => (
+      <div key={option.value} onClick={() => setInvitePermission(option.value)} style={{ flex: 1, padding: '10px 8px', background: invitePermission === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${invitePermission === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
+        <div style={{ fontSize: '10px', color: invitePermission === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<div style={{ marginBottom: '20px' }}>
+  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Travel & Stay</label>
+  <div style={{ display: 'flex', gap: '8px' }}>
+    {[
+      { value: 'flights', label: '✈️ Flights', desc: 'Track flights', state: requiresFlights, setter: setRequiresFlights, color: '100, 180, 255' },
+      { value: 'lodging', label: '🏨 Lodging', desc: 'Track stays', state: requiresLodging, setter: setRequiresLodging, color: '180, 100, 255' },
+    ].map(option => (
+      <div key={option.value} onClick={() => option.setter(!option.state)} style={{ flex: 1, padding: '10px 8px', background: option.state ? `rgba(${option.color}, 0.15)` : '#0A0A0A', border: `1px solid ${option.state ? `rgb(${option.color})` : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
+        <div style={{ fontSize: '10px', color: option.state ? `rgb(${option.color})` : '#666', fontWeight: 600 }}>{option.desc}</div>
+      </div>
+    ))}
+  </div>
+</div>
 
             <button onClick={createEvent} disabled={saving || !name.trim()} style={{ width: '100%', background: saving || !name.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !name.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
               {saving ? 'Creating...' : 'Create Event →'}

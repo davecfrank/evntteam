@@ -212,7 +212,7 @@ export default function Profile() {
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
         {[
           { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
-          { icon: '🗓', label: 'Plan', path: '/prototype/itinerary' },
+          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
           { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
           { icon: '💬', label: 'Chat', path: '/prototype/chat' },
           { icon: '👤', label: 'Profile', path: '/prototype/profile', active: true },

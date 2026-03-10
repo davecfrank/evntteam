@@ -3,266 +3,665 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '../../../lib/supabase'
 
-function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, event: any }) {
-    const [items, setItems] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const [showAddModal, setShowAddModal] = useState(false)
-    const [editItem, setEditItem] = useState<any>(null)
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
-    const [notes, setNotes] = useState('')
-    const [date, setDate] = useState('')
-    const [startTime, setStartTime] = useState('')
-    const [endTime, setEndTime] = useState('')
-    const [location, setLocation] = useState('')
-    const [category, setCategory] = useState('activity')
-    const [isVotable, setIsVotable] = useState(false)
-    const [isBooked, setIsBooked] = useState(false)
-    const [saving, setSaving] = useState(false)
-    const [expandedItem, setExpandedItem] = useState<string | null>(null)
-  
-    const categories = [
-      { value: 'activity', label: '🎯 Activity' },
-      { value: 'food', label: '🍽 Food' },
-      { value: 'transport', label: '🚗 Transport' },
-      { value: 'lodging', label: '🏨 Lodging' },
-      { value: 'flight', label: '✈️ Flight' },
-      { value: 'other', label: '✨ Other' },
-    ]
-  
-    useEffect(() => {
-      async function load() {
-        const { data } = await supabase
-          .from('itinerary_items')
-          .select('*')
-          .eq('event_id', eventId)
-          .order('date', { ascending: true })
-          .order('start_time', { ascending: true })
-        setItems(data || [])
-        setLoading(false)
-      }
-      load()
-    }, [eventId])
-  
-    function resetForm() {
-      setTitle(''); setDescription(''); setNotes(''); setDate('')
-      setStartTime(''); setEndTime(''); setLocation('')
-      setCategory('activity'); setIsVotable(false); setIsBooked(false)
-      setEditItem(null)
-    }
-  
-    async function saveItem() {
-      if (!title.trim()) return
-      setSaving(true)
-      const payload = {
-        event_id: eventId,
-        title, description, notes, date,
-        start_time: startTime, end_time: endTime,
-        location, category, is_votable: isVotable,
-        is_booked: isBooked, created_by: user.id
-      }
-      if (editItem) {
-        const { data } = await supabase.from('itinerary_items').update(payload).eq('id', editItem.id).select().single()
-        if (data) setItems(prev => prev.map(i => i.id === editItem.id ? data : i))
-      } else {
-        const { data } = await supabase.from('itinerary_items').insert(payload).select().single()
-        if (data) setItems(prev => [...prev, data])
-      }
-      resetForm()
-      setShowAddModal(false)
-      setSaving(false)
-    }
-  
-    async function deleteItem(id: string) {
-      await supabase.from('itinerary_items').delete().eq('id', id)
-      setItems(prev => prev.filter(i => i.id !== id))
-    }
-  
-    function openEdit(item: any) {
-      setEditItem(item)
-      setTitle(item.title || '')
-      setDescription(item.description || '')
-      setNotes(item.notes || '')
-      setDate(item.date || '')
-      setStartTime(item.start_time || '')
-      setEndTime(item.end_time || '')
-      setLocation(item.location || '')
-      setCategory(item.category || 'activity')
-      setIsVotable(item.is_votable || false)
-      setIsBooked(item.is_booked || false)
-      setShowAddModal(true)
-    }
-  
-    const getCategoryEmoji = (cat: string) => categories.find(c => c.value === cat)?.label.split(' ')[0] || '✨'
-  
-    // Group items by date
-    const grouped = items.reduce((acc: any, item) => {
-      const key = item.date || 'No Date'
-      if (!acc[key]) acc[key] = []
-      acc[key].push(item)
-      return acc
-    }, {})
-  
-    if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-  
-    return (
+const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
+const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }
+
+function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
+  return (
+    <div onClick={() => onChange(!value)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: value ? bg : '#0A0A0A', border: `1px solid ${value ? color : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer' }}>
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>
-            {items.length} {items.length === 1 ? 'Item' : 'Items'}
-          </div>
-          <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-            + Add Item
-          </button>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: value ? color : '#F0F0F0' }}>{label}</div>
+        <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>{desc}</div>
+      </div>
+      <div style={{ width: '40px', height: '22px', borderRadius: '11px', background: value ? color : '#2A2A2A', position: 'relative', transition: 'background 0.2s' }}>
+        <div style={{ position: 'absolute', top: '3px', left: value ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+      </div>
+    </div>
+  )
+}
+
+function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, event: any }) {
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editItem, setEditItem] = useState<any>(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [notes, setNotes] = useState('')
+  const [date, setDate] = useState('')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [location, setLocation] = useState('')
+  const [category, setCategory] = useState('activity')
+  const [isVotable, setIsVotable] = useState(false)
+  const [isBooked, setIsBooked] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [expandedItem, setExpandedItem] = useState<string | null>(null)
+
+  const categories = [
+    { value: 'activity', label: '🎯 Activity' },
+    { value: 'food', label: '🍽 Food' },
+    { value: 'transport', label: '🚗 Transport' },
+    { value: 'lodging', label: '🏨 Lodging' },
+    { value: 'flight', label: '✈️ Flight' },
+    { value: 'other', label: '✨ Other' },
+  ]
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('itinerary_items').select('*').eq('event_id', eventId).order('date', { ascending: true }).order('start_time', { ascending: true })
+      setItems(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  function resetForm() {
+    setTitle(''); setDescription(''); setNotes(''); setDate('')
+    setStartTime(''); setEndTime(''); setLocation('')
+    setCategory('activity'); setIsVotable(false); setIsBooked(false); setEditItem(null)
+  }
+
+  async function saveItem() {
+    if (!title.trim()) return
+    setSaving(true)
+    const payload = { event_id: eventId, title, description, notes, date, start_time: startTime, end_time: endTime, location, category, is_votable: isVotable, is_booked: isBooked, created_by: user.id }
+    if (editItem) {
+      const { data } = await supabase.from('itinerary_items').update(payload).eq('id', editItem.id).select().single()
+      if (data) setItems(prev => prev.map(i => i.id === editItem.id ? data : i))
+    } else {
+      const { data } = await supabase.from('itinerary_items').insert(payload).select().single()
+      if (data) setItems(prev => [...prev, data])
+    }
+    resetForm(); setShowAddModal(false); setSaving(false)
+  }
+
+  async function deleteItem(id: string) {
+    await supabase.from('itinerary_items').delete().eq('id', id)
+    setItems(prev => prev.filter(i => i.id !== id))
+  }
+
+  function openEdit(item: any) {
+    setEditItem(item); setTitle(item.title || ''); setDescription(item.description || '')
+    setNotes(item.notes || ''); setDate(item.date || ''); setStartTime(item.start_time || '')
+    setEndTime(item.end_time || ''); setLocation(item.location || '')
+    setCategory(item.category || 'activity'); setIsVotable(item.is_votable || false)
+    setIsBooked(item.is_booked || false); setShowAddModal(true)
+  }
+
+  const getCategoryEmoji = (cat: string) => categories.find(c => c.value === cat)?.label.split(' ')[0] || '✨'
+  const grouped = items.reduce((acc: any, item) => {
+    const key = item.date || 'No Date'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
+    return acc
+  }, {})
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>{items.length} {items.length === 1 ? 'Item' : 'Items'}</div>
+        <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>+ Add Item</button>
+      </div>
+      {items.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗓</div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>No itinerary items yet</div>
+          <div style={{ fontSize: '13px', marginBottom: '16px' }}>Add activities, flights, lodging and more</div>
+          <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Add First Item →</button>
         </div>
-  
-        {items.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗓</div>
-            <div style={{ fontWeight: 700, marginBottom: '8px' }}>No itinerary items yet</div>
-            <div style={{ fontSize: '13px', marginBottom: '16px' }}>Add activities, flights, lodging and more</div>
-            <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
-              Add First Item →
-            </button>
+      ) : (
+        Object.entries(grouped).map(([date, dateItems]: any) => (
+          <div key={date} style={{ marginBottom: '24px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid #1A1A1A' }}>
+              {date === 'No Date' ? 'No Date' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </div>
+            {dateItems.map((item: any) => (
+              <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+                <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ fontSize: '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px' }}>{item.title}</div>
+                      {item.is_votable && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>🗳 VOTE</div>}
+                      {item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
+                      {item.location && <span>📍 {item.location}</span>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>
+                </div>
+                {expandedItem === item.id && (
+                  <div style={{ padding: '0 16px 16px', borderTop: '1px solid #1A1A1A' }}>
+                    {item.description && <p style={{ fontSize: '13px', color: '#888', marginTop: '12px', marginBottom: '8px' }}>{item.description}</p>}
+                    {item.notes && (
+                      <div style={{ background: 'rgba(255,214,0,0.05)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFD600', marginBottom: '4px' }}>📝 NOTES</div>
+                        <div style={{ fontSize: '13px', color: '#888' }}>{item.notes}</div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => openEdit(item)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>✏️ Edit</button>
+                      <button onClick={() => deleteItem(item.id)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>🗑 Delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        ) : (
-          Object.entries(grouped).map(([date, dateItems]: any) => (
-            <div key={date} style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid #1A1A1A' }}>
-                {date === 'No Date' ? 'No Date' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        ))
+      )}
+      {showAddModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editItem ? 'Edit Item' : 'Add Itinerary Item'}</h2>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Category</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {categories.map(cat => (
+                  <div key={cat.value} onClick={() => setCategory(cat.value)} style={{ padding: '8px', background: category === cat.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${category === cat.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: category === cat.value ? '#FF4D00' : '#666' }}>{cat.label}</div>
+                ))}
               </div>
-              {dateItems.map((item: any) => (
-                <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
-                  <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <div style={{ fontWeight: 700, fontSize: '14px' }}>{item.title}</div>
-                        {item.is_votable && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>🗳 VOTE</div>}
-                        {item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
-                        {item.location && <span>📍 {item.location}</span>}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>
-                  </div>
-  
-                  {expandedItem === item.id && (
-                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid #1A1A1A' }}>
-                      {item.description && <p style={{ fontSize: '13px', color: '#888', marginTop: '12px', marginBottom: '8px' }}>{item.description}</p>}
-                      {item.notes && (
-                        <div style={{ background: 'rgba(255,214,0,0.05)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: '8px', padding: '10px', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFD600', marginBottom: '4px' }}>📝 NOTES</div>
-                          <div style={{ fontSize: '13px', color: '#888' }}>{item.notes}</div>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => openEdit(item)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>
-                          ✏️ Edit
-                        </button>
-                        <button onClick={() => deleteItem(item.id)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>
-                          🗑 Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
-          ))
-        )}
-  
-        {/* Add/Edit Modal */}
-        {showAddModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
-            <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-              <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }}></div>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editItem ? 'Edit Item' : 'Add Itinerary Item'}</h2>
-  
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Title *</label>
-                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Dinner at The Palm" style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-  
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Category</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                  {categories.map(cat => (
-                    <div key={cat.value} onClick={() => setCategory(cat.value)} style={{ padding: '8px', background: category === cat.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${category === cat.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: category === cat.value ? '#FF4D00' : '#666' }}>
-                      {cat.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-  
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Date (optional)</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
-              </div>
-  
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Start Time (optional)</label>
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>End Time (optional)</label>
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
-                </div>
-              </div>
-  
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Location (optional)</label>
-                <input value={location} onChange={e => setLocation(e.target.value)} placeholder="123 Main St or Restaurant Name" style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-  
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Description (optional)</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Any details about this activity..." rows={2} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'sans-serif' }} />
-              </div>
-  
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Notes (optional)</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'sans-serif' }} />
-              </div>
-  
-              {/* Toggles */}
-              <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div onClick={() => setIsVotable(!isVotable)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: isVotable ? 'rgba(255,214,0,0.08)' : '#0A0A0A', border: `1px solid ${isVotable ? '#FFD600' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: isVotable ? '#FFD600' : '#F0F0F0' }}>🗳 Open to Group Vote</div>
-                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>Let members vote on this item</div>
-                  </div>
-                  <div style={{ width: '40px', height: '22px', borderRadius: '11px', background: isVotable ? '#FFD600' : '#2A2A2A', position: 'relative', transition: 'background 0.2s' }}>
-                    <div style={{ position: 'absolute', top: '3px', left: isVotable ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}></div>
-                  </div>
-                </div>
-  
-                <div onClick={() => setIsBooked(!isBooked)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: isBooked ? 'rgba(0,230,118,0.08)' : '#0A0A0A', border: `1px solid ${isBooked ? '#00E676' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: isBooked ? '#00E676' : '#F0F0F0' }}>✅ Mark as Booked</div>
-                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>This item is confirmed</div>
-                  </div>
-                  <div style={{ width: '40px', height: '22px', borderRadius: '11px', background: isBooked ? '#00E676' : '#2A2A2A', position: 'relative', transition: 'background 0.2s' }}>
-                    <div style={{ position: 'absolute', top: '3px', left: isBooked ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-  
-              <button onClick={saveItem} disabled={saving || !title.trim()} style={{ width: '100%', background: saving || !title.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !title.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
-                {saving ? 'Saving...' : editItem ? 'Save Changes →' : 'Add to Itinerary →'}
-              </button>
-              <button onClick={() => { setShowAddModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>
-                Cancel
-              </button>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Start Time</label><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>End Time</label><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             </div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <ToggleRow value={isVotable} onChange={setIsVotable} label="🗳 Open to Group Vote" desc="Let members vote on this item" color="#FFD600" bg="rgba(255,214,0,0.08)" />
+              <ToggleRow value={isBooked} onChange={setIsBooked} label="✅ Mark as Booked" desc="This item is confirmed" color="#00E676" bg="rgba(0,230,118,0.08)" />
+            </div>
+            <button onClick={saveItem} disabled={saving || !title.trim()} style={{ width: '100%', background: saving || !title.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !title.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
+              {saving ? 'Saving...' : editItem ? 'Save Changes →' : 'Add to Itinerary →'}
+            </button>
+            <button onClick={() => { setShowAddModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FlightCard({ flight, isOwn, onEdit, onDelete }: { flight: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void }) {
+  const fmt = (dt: string) => {
+    if (!dt) return null
+    try { return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return dt }
+  }
+  return (
+    <div style={{ background: '#161616', border: `1px solid ${isOwn ? '#64B4FF33' : '#2A2A2A'}`, borderRadius: '12px', padding: '16px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ fontSize: '20px' }}>✈️</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>{flight.airline} {flight.flight_number}</div>
+            <div style={{ fontSize: '11px', color: '#666' }}>{flight.user_email}</div>
+          </div>
+        </div>
+        {isOwn && (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={onEdit} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#F0F0F0', cursor: 'pointer', fontWeight: 700 }}>✏️</button>
+            <button onClick={onDelete} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#FF4D00', cursor: 'pointer', fontWeight: 700 }}>🗑</button>
           </div>
         )}
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>{flight.departure_airport || '—'}</div>
+          {fmt(flight.departure_time) && <div style={{ fontSize: '10px', color: '#666' }}>{fmt(flight.departure_time)}</div>}
+        </div>
+        <div style={{ flex: 1, height: '1px', background: '#2A2A2A', position: 'relative', margin: '0 8px' }}>
+          <div style={{ position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)', fontSize: '12px' }}>✈</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', fontWeight: 800 }}>{flight.arrival_airport || '—'}</div>
+          {fmt(flight.arrival_time) && <div style={{ fontSize: '10px', color: '#666' }}>{fmt(flight.arrival_time)}</div>}
+        </div>
+      </div>
+      {flight.notes && <div style={{ fontSize: '12px', color: '#666', borderTop: '1px solid #1A1A1A', paddingTop: '8px' }}>📝 {flight.notes}</div>}
+    </div>
+  )
+}
+
+function FlightsTab({ eventId, user, members }: { eventId: string, user: any, members: any[] }) {
+  const [flights, setFlights] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editFlight, setEditFlight] = useState<any>(null)
+  const [airline, setAirline] = useState('')
+  const [flightNumber, setFlightNumber] = useState('')
+  const [departureAirport, setDepartureAirport] = useState('')
+  const [arrivalAirport, setArrivalAirport] = useState('')
+  const [departureTime, setDepartureTime] = useState('')
+  const [arrivalTime, setArrivalTime] = useState('')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('member_flights').select('*').eq('event_id', eventId).order('arrival_time', { ascending: true })
+      setFlights(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  function resetForm() {
+    setAirline(''); setFlightNumber(''); setDepartureAirport(''); setArrivalAirport('')
+    setDepartureTime(''); setArrivalTime(''); setNotes(''); setEditFlight(null)
+  }
+
+  async function saveFlight() {
+    if (!airline.trim() && !flightNumber.trim()) return
+    setSaving(true)
+    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, airline, flight_number: flightNumber, departure_airport: departureAirport, arrival_airport: arrivalAirport, departure_time: departureTime || null, arrival_time: arrivalTime || null, notes }
+    if (editFlight) {
+      const { data } = await supabase.from('member_flights').update(payload).eq('id', editFlight.id).select().single()
+      if (data) setFlights(prev => prev.map(f => f.id === editFlight.id ? data : f))
+    } else {
+      const { data } = await supabase.from('member_flights').insert(payload).select().single()
+      if (data) setFlights(prev => [...prev, data])
+    }
+    resetForm(); setShowModal(false); setSaving(false)
+  }
+
+  async function deleteFlight(id: string) {
+    await supabase.from('member_flights').delete().eq('id', id)
+    setFlights(prev => prev.filter(f => f.id !== id))
+  }
+
+  function openEdit(f: any) {
+    setEditFlight(f); setAirline(f.airline || ''); setFlightNumber(f.flight_number || '')
+    setDepartureAirport(f.departure_airport || ''); setArrivalAirport(f.arrival_airport || '')
+    setDepartureTime(f.departure_time ? f.departure_time.slice(0, 16) : '')
+    setArrivalTime(f.arrival_time ? f.arrival_time.slice(0, 16) : '')
+    setNotes(f.notes || ''); setShowModal(true)
+  }
+
+  const myFlight = flights.find(f => f.user_id === user.id)
+  const otherFlights = flights.filter(f => f.user_id !== user.id)
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>✈️ Flight Details</div>
+        <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+          {myFlight ? '✏️ Edit My Flight' : '+ Add My Flight'}
+        </button>
+      </div>
+      {myFlight ? (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHT</div>
+          <FlightCard flight={myFlight} isOwn onEdit={() => openEdit(myFlight)} onDelete={() => deleteFlight(myFlight.id)} />
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✈️</div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your flight info</div>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know when you're arriving</div>
+          <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Add My Flight →</button>
+        </div>
+      )}
+      {otherFlights.length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP FLIGHTS</div>
+          {otherFlights.map(f => <FlightCard key={f.id} flight={f} isOwn={false} />)}
+        </div>
+      )}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editFlight ? '✏️ Edit Flight' : '✈️ Add My Flight'}</h2>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Airline</label><input value={airline} onChange={e => setAirline(e.target.value)} placeholder="Delta" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Flight #</label><input value={flightNumber} onChange={e => setFlightNumber(e.target.value)} placeholder="DL 1234" style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>From</label><input value={departureAirport} onChange={e => setDepartureAirport(e.target.value)} placeholder="LAX" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>To</label><input value={arrivalAirport} onChange={e => setArrivalAirport(e.target.value)} placeholder="BNA" style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Departure</label><input type="datetime-local" value={departureTime} onChange={e => setDepartureTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Arrival</label><input type="datetime-local" value={arrivalTime} onChange={e => setArrivalTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            </div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Seat 14A, checked bag, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <button onClick={saveFlight} disabled={saving || (!airline.trim() && !flightNumber.trim())} style={{ width: '100%', background: saving ? '#333' : '#64B4FF', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#000', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
+              {saving ? 'Saving...' : editFlight ? 'Save Changes →' : 'Add Flight →'}
+            </button>
+            <button onClick={() => { setShowModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LodgingCard({ lodging, isOwn, onEdit, onDelete }: { lodging: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void }) {
+  return (
+    <div style={{ background: '#161616', border: `1px solid ${isOwn ? '#B464FF33' : '#2A2A2A'}`, borderRadius: '12px', padding: '16px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ fontSize: '28px' }}>🏨</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '15px' }}>{lodging.hotel_name}</div>
+            {lodging.address && <div style={{ fontSize: '12px', color: '#666' }}>📍 {lodging.address}</div>}
+          </div>
+        </div>
+        {isOwn && (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={onEdit} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#F0F0F0', cursor: 'pointer', fontWeight: 700 }}>✏️</button>
+            <button onClick={onDelete} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#FF4D00', cursor: 'pointer', fontWeight: 700 }}>🗑</button>
+          </div>
+        )}
+      </div>
+      {(lodging.check_in || lodging.check_out) && (
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
+          {lodging.check_in && <div style={{ flex: 1, background: '#0A0A0A', borderRadius: '8px', padding: '8px 12px' }}><div style={{ fontSize: '10px', color: '#666', fontWeight: 700, marginBottom: '2px' }}>CHECK-IN</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{lodging.check_in}</div></div>}
+          {lodging.check_out && <div style={{ flex: 1, background: '#0A0A0A', borderRadius: '8px', padding: '8px 12px' }}><div style={{ fontSize: '10px', color: '#666', fontWeight: 700, marginBottom: '2px' }}>CHECK-OUT</div><div style={{ fontSize: '13px', fontWeight: 700 }}>{lodging.check_out}</div></div>}
+        </div>
+      )}
+      {lodging.confirmation_code && (
+        <div style={{ background: 'rgba(180,100,255,0.05)', border: '1px solid rgba(180,100,255,0.2)', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px' }}>
+          <div style={{ fontSize: '10px', color: '#B464FF', fontWeight: 700, marginBottom: '2px' }}>CONFIRMATION</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '1px' }}>{lodging.confirmation_code}</div>
+        </div>
+      )}
+      {lodging.notes && <div style={{ fontSize: '12px', color: '#666', borderTop: '1px solid #1A1A1A', paddingTop: '8px' }}>📝 {lodging.notes}</div>}
+    </div>
+  )
+}
+
+function LodgingTab({ eventId, user }: { eventId: string, user: any }) {
+  const [lodgings, setLodgings] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editLodging, setEditLodging] = useState<any>(null)
+  const [hotelName, setHotelName] = useState('')
+  const [address, setAddress] = useState('')
+  const [checkIn, setCheckIn] = useState('')
+  const [checkOut, setCheckOut] = useState('')
+  const [confirmationCode, setConfirmationCode] = useState('')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('member_lodging').select('*').eq('event_id', eventId).order('check_in', { ascending: true })
+      setLodgings(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  function resetForm() {
+    setHotelName(''); setAddress(''); setCheckIn(''); setCheckOut('')
+    setConfirmationCode(''); setNotes(''); setEditLodging(null)
+  }
+
+  async function saveLodging() {
+    if (!hotelName.trim()) return
+    setSaving(true)
+    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, hotel_name: hotelName, address, check_in: checkIn || null, check_out: checkOut || null, confirmation_code: confirmationCode, notes }
+    if (editLodging) {
+      const { data } = await supabase.from('member_lodging').update(payload).eq('id', editLodging.id).select().single()
+      if (data) setLodgings(prev => prev.map(l => l.id === editLodging.id ? data : l))
+    } else {
+      const { data } = await supabase.from('member_lodging').insert(payload).select().single()
+      if (data) setLodgings(prev => [...prev, data])
+    }
+    resetForm(); setShowModal(false); setSaving(false)
+  }
+
+  async function deleteLodging(id: string) {
+    await supabase.from('member_lodging').delete().eq('id', id)
+    setLodgings(prev => prev.filter(l => l.id !== id))
+  }
+
+  function openEdit(l: any) {
+    setEditLodging(l); setHotelName(l.hotel_name || ''); setAddress(l.address || '')
+    setCheckIn(l.check_in || ''); setCheckOut(l.check_out || '')
+    setConfirmationCode(l.confirmation_code || ''); setNotes(l.notes || ''); setShowModal(true)
+  }
+
+  const myLodging = lodgings.find(l => l.user_id === user.id)
+  const otherLodgings = lodgings.filter(l => l.user_id !== user.id)
+  const hotelGroups = otherLodgings.reduce((acc: any, l) => {
+    const key = l.hotel_name || 'Unknown'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(l)
+    return acc
+  }, {})
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🏨 Lodging</div>
+        <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+          {myLodging ? '✏️ Edit My Stay' : '+ Add My Stay'}
+        </button>
+      </div>
+      {myLodging ? (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#B464FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY STAY</div>
+          <LodgingCard lodging={myLodging} isOwn onEdit={() => openEdit(myLodging)} onDelete={() => deleteLodging(myLodging.id)} />
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏨</div>
+          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your lodging info</div>
+          <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know where you're staying</div>
+          <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Add My Stay →</button>
+        </div>
+      )}
+      {Object.keys(hotelGroups).length > 0 && (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP STAYS</div>
+          {Object.entries(hotelGroups).map(([hotel, people]: any) => (
+            <div key={hotel} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
+              <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>🏨 {hotel}</div>
+              {people.map((l: any) => (
+                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid #1A1A1A' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{l.user_email?.[0]?.toUpperCase()}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{l.user_email}</div>
+                    {(l.check_in || l.check_out) && <div style={{ fontSize: '11px', color: '#666' }}>{l.check_in && `Check-in: ${l.check_in}`}{l.check_in && l.check_out ? ' · ' : ''}{l.check_out && `Check-out: ${l.check_out}`}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editLodging ? '✏️ Edit Stay' : '🏨 Add My Stay'}</h2>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Hotel / Airbnb Name *</label><input value={hotelName} onChange={e => setHotelName(e.target.value)} placeholder="The Grand Hyatt" style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Address</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Broadway, Nashville TN" style={inputStyle} /></div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Check-in</label><input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Check-out</label><input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            </div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Confirmation Code</label><input value={confirmationCode} onChange={e => setConfirmationCode(e.target.value)} placeholder="ABC123XYZ" style={inputStyle} /></div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Pool access, parking, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <button onClick={saveLodging} disabled={saving || !hotelName.trim()} style={{ width: '100%', background: saving || !hotelName.trim() ? '#333' : '#B464FF', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !hotelName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
+              {saving ? 'Saving...' : editLodging ? 'Save Changes →' : 'Add Stay →'}
+            </button>
+            <button onClick={() => { setShowModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChatTab({ eventId, user, members, flights, lodgings }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[] }) {
+  const [groups, setGroups] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [activeGroup, setActiveGroup] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
+  const [newMessage, setNewMessage] = useState('')
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('chat_groups').select('*').eq('event_id', eventId).order('created_at', { ascending: true })
+      setGroups(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  useEffect(() => {
+    if (!activeGroup) return
+    async function loadMessages() {
+      const { data } = await supabase.from('chat_messages').select('*').eq('group_id', activeGroup.id).order('created_at', { ascending: true })
+      setMessages(data || [])
+    }
+    loadMessages()
+    const sub = supabase.channel(`chat:${activeGroup.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `group_id=eq.${activeGroup.id}` }, payload => {
+        setMessages(prev => [...prev, payload.new])
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(sub) }
+  }, [activeGroup])
+
+  async function createGroup(name: string, autoCreated = false) {
+    if (!name.trim()) return
+    setSaving(true)
+    const { data } = await supabase.from('chat_groups').insert({ event_id: eventId, name, created_by: user.id, auto_created: autoCreated }).select().single()
+    if (data) setGroups(prev => [...prev, data])
+    setGroupName(''); setShowCreateModal(false); setSaving(false)
+  }
+
+  async function sendMessage() {
+    if (!newMessage.trim() || !activeGroup) return
+    setSending(true)
+    await supabase.from('chat_messages').insert({ group_id: activeGroup.id, event_id: eventId, user_id: user.id, user_email: user.email, content: newMessage.trim() })
+    setNewMessage(''); setSending(false)
+  }
+
+  const suggestions: string[] = []
+  const arrivalDates = [...new Set(flights.filter(f => f.arrival_time).map(f => {
+    try { return new Date(f.arrival_time).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) } catch { return null }
+  }).filter(Boolean))] as string[]
+  arrivalDates.forEach(d => { if (!groups.find(g => g.name === `Arriving ${d}`)) suggestions.push(`Arriving ${d}`) })
+  const hotelNames = [...new Set(lodgings.map(l => l.hotel_name).filter(Boolean))] as string[]
+  hotelNames.forEach(h => { if (!groups.find(g => g.name === `Staying at ${h}`)) suggestions.push(`Staying at ${h}`) })
+
+  if (activeGroup) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <button onClick={() => setActiveGroup(null)} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
+          <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeGroup.name}</div>
+          {activeGroup.auto_created && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>AUTO</div>}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+          {messages.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#666', padding: '40px', fontSize: '13px' }}>No messages yet — say hi! 👋</div>
+          ) : (
+            messages.map((msg: any) => {
+              const isMe = msg.user_id === user.id
+              return (
+                <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '8px' }}>
+                  {!isMe && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{msg.user_email?.[0]?.toUpperCase()}</div>}
+                  <div style={{ maxWidth: '75%' }}>
+                    {!isMe && <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px', fontWeight: 600 }}>{msg.user_email}</div>}
+                    <div style={{ background: isMe ? '#FF4D00' : '#1E1E1E', border: isMe ? 'none' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4 }}>{msg.content}</div>
+                    <div style={{ fontSize: '10px', color: '#444', marginTop: '3px', textAlign: isMe ? 'right' : 'left' }}>{new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} placeholder="Message..." style={{ flex: 1, background: '#161616', border: '1px solid #2A2A2A', borderRadius: '24px', padding: '12px 16px', fontSize: '14px', color: '#fff', outline: 'none' }} />
+          <button onClick={sendMessage} disabled={sending || !newMessage.trim()} style={{ background: newMessage.trim() ? '#FF4D00' : '#333', border: 'none', borderRadius: '50%', width: '44px', height: '44px', fontSize: '18px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>↑</button>
+        </div>
+      </div>
     )
   }
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>💬 Chat Groups</div>
+        <button onClick={() => setShowCreateModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>+ New Group</button>
+      </div>
+      {suggestions.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFD600', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>✨ SUGGESTED GROUPS</div>
+          {suggestions.map(s => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,214,0,0.05)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: '12px', padding: '12px 14px', marginBottom: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>💡 {s}</div>
+              <button onClick={() => createGroup(s, true)} style={{ background: '#FFD600', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#000', cursor: 'pointer' }}>Create</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {groups.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>💬</div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>No chat groups yet</div>
+          <div style={{ fontSize: '13px', marginBottom: '16px' }}>Create a group to start chatting</div>
+          <button onClick={() => setShowCreateModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Create First Group →</button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>ALL GROUPS</div>
+          {groups.map(group => (
+            <div key={group.id} onClick={() => setActiveGroup(group)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', marginBottom: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>💬</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px' }}>{group.name}</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>Tap to open</div>
+              </div>
+              {group.auto_created && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>AUTO</div>}
+              <div style={{ fontSize: '16px', color: '#666' }}>→</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {showCreateModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>💬 Create Chat Group</h2>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Group Name</label><input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Arriving Friday, Hotel Crew, etc." style={inputStyle} autoFocus /></div>
+            <button onClick={() => createGroup(groupName)} disabled={saving || !groupName.trim()} style={{ width: '100%', background: saving || !groupName.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !groupName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
+              {saving ? 'Creating...' : 'Create Group →'}
+            </button>
+            <button onClick={() => { setShowCreateModal(false); setGroupName('') }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EventPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -271,6 +670,8 @@ function EventPage() {
   const [user, setUser] = useState<any>(null)
   const [event, setEvent] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
+  const [flights, setFlights] = useState<any[]>([])
+  const [lodgings, setLodgings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -285,24 +686,20 @@ function EventPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/prototype'); return }
       setUser(user)
-
       if (!eventId) { router.push('/prototype/dashboard'); return }
-
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single()
-
+      const { data: eventData } = await supabase.from('events').select('*').eq('id', eventId).single()
       if (!eventData) { router.push('/prototype/dashboard'); return }
       setEvent(eventData)
-
-      const { data: membersData } = await supabase
-        .from('event_members')
-        .select('*')
-        .eq('event_id', eventId)
-
+      const { data: membersData } = await supabase.from('event_members').select('*').eq('event_id', eventId)
       setMembers(membersData || [])
+      if (eventData.requires_flights) {
+        const { data: flightsData } = await supabase.from('member_flights').select('*').eq('event_id', eventId)
+        setFlights(flightsData || [])
+      }
+      if (eventData.requires_lodging) {
+        const { data: lodgingsData } = await supabase.from('member_lodging').select('*').eq('event_id', eventId)
+        setLodgings(lodgingsData || [])
+      }
       setLoading(false)
     }
     load()
@@ -315,8 +712,7 @@ function EventPage() {
     if (!dateStr) return null
     const eventDate = new Date(dateStr)
     if (isNaN(eventDate.getTime())) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
     const diff = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     if (diff < 0) return 'Past event'
     if (diff === 0) return 'Today! 🎉'
@@ -324,25 +720,14 @@ function EventPage() {
     return `${diff} days away`
   }
 
-  const getEmoji = (type: string) => {
-    const types: Record<string, string> = {
-      Birthday: '🎂', Bachelor: '🎉', Vacation: '☀️', Wedding: '💒', Holiday: '🎄', Other: '✨'
-    }
-    return types[type] || '✨'
-  }
+  const getEmoji = (type: string) => ({ Birthday: '🎂', Bachelor: '🎉', Vacation: '☀️', Wedding: '💒', Holiday: '🎄', Other: '✨' } as any)[type] || '✨'
 
   async function inviteByEmail() {
     if (!inviteEmail.trim()) return
     setInviting(true)
-    await supabase.from('event_members').insert({
-      event_id: eventId,
-      user_email: inviteEmail.trim(),
-      role: inviteRole,
-      role_level: inviteRole,
-    })
+    await supabase.from('event_members').insert({ event_id: eventId, user_email: inviteEmail.trim(), role: inviteRole, role_level: inviteRole })
     setMembers(prev => [...prev, { user_email: inviteEmail.trim(), role: 'member' }])
-    setInviteEmail('')
-    setInviteSuccess(true)
+    setInviteEmail(''); setInviteSuccess(true)
     setTimeout(() => setInviteSuccess(false), 3000)
     setInviting(false)
   }
@@ -354,127 +739,81 @@ function EventPage() {
 
   function copyLink() {
     navigator.clipboard.writeText(`https://evnt.team/invite/${eventId}`)
-    setLinkCopied(true)
-    setTimeout(() => setLinkCopied(false), 2000)
+    setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000)
   }
 
+  const tabs = [
+    { id: 'overview', icon: '🏠', label: 'Overview' },
+    { id: 'itinerary', icon: '🗓', label: 'Itinerary' },
+    ...(event?.requires_flights ? [{ id: 'flights', icon: '✈️', label: 'Flights' }] : []),
+    ...(event?.requires_lodging ? [{ id: 'lodging', icon: '🏨', label: 'Lodging' }] : []),
+    { id: 'vote', icon: '🗳', label: 'Vote' },
+    { id: 'chat', icon: '💬', label: 'Chat' },
+    { id: 'photos', icon: '📸', label: 'Photos' },
+  ]
+
   if (loading) return (
-    <main style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontFamily: 'sans-serif' }}>
-      Loading...
-    </main>
+    <main style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontFamily: 'sans-serif' }}>Loading...</main>
   )
 
   return (
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '100px' }}>
-
-      {/* Header */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
-        {isHost && (
-          <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
-            👑 Host
-          </div>
-        )}
+        {isHost && <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>👑 Host</div>}
       </div>
 
-      {/* Event Hero */}
       <div style={{ padding: '24px', borderBottom: '1px solid #1A1A1A' }}>
         <div style={{ fontSize: '48px', marginBottom: '12px' }}>{getEmoji(event?.event_type)}</div>
         <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>{event?.name}</h1>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-          {event?.destination && (
-            <div style={{ fontSize: '13px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              📍 {event.destination}
-            </div>
-          )}
-          {event?.dates && (
-            <div style={{ fontSize: '13px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              📅 {event.dates}
-            </div>
-          )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+          {event?.destination && <div style={{ fontSize: '13px', color: '#888' }}>📍 {event.destination}</div>}
+          {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {event.dates}</div>}
         </div>
-        {getCountdown(event?.dates) && (
-          <div style={{ display: 'inline-block', fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
-            ⏳ {getCountdown(event?.dates)}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {getCountdown(event?.dates) && <div style={{ fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>⏳ {getCountdown(event?.dates)}</div>}
+          {event?.requires_flights && <div style={{ fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>✈️ Flights</div>}
+          {event?.requires_lodging && <div style={{ fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px', background: 'rgba(180,100,255,0.1)', color: '#B464FF' }}>🏨 Lodging</div>}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #1A1A1A' }}>
-        {['overview', 'itinerary', 'vote', 'chat', 'photos'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            flex: 1, padding: '12px 4px', background: 'none', border: 'none',
-            borderBottom: activeTab === tab ? '2px solid #FF4D00' : '2px solid transparent',
-            color: activeTab === tab ? '#FF4D00' : '#666',
-            fontSize: '10px', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px'
-          }}>
-            {tab === 'overview' ? '🏠' : tab === 'itinerary' ? '🗓' : tab === 'vote' ? '🗳' : tab === 'chat' ? '💬' : '📸'}
-            <br />{tab}
+      <div style={{ display: 'flex', borderBottom: '1px solid #1A1A1A', overflowX: 'auto' }}>
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: '12px 12px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #FF4D00' : '2px solid transparent', color: activeTab === tab.id ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {tab.icon}<br />{tab.label}
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
       <div style={{ padding: '24px' }}>
-
-        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div>
-            {/* Members */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>
-                  Members ({members.length + 1})
-                </div>
-                {canInvite && (
-                  <button onClick={() => setShowInviteModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                    + Invite
-                  </button>
-                )}
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Members ({members.length + 1})</div>
+                {canInvite && <button onClick={() => setShowInviteModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>+ Invite</button>}
               </div>
-
-              {/* Host */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>
-                  {user?.email?.[0]?.toUpperCase()}
-                </div>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{user?.email?.[0]?.toUpperCase()}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: 600 }}>{user?.email}</div>
                   <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
                 </div>
               </div>
-
               {members.map((member, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>
-                    {member.user_email?.[0]?.toUpperCase()}
-                  </div>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{member.user_email?.[0]?.toUpperCase()}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>{member.user_email}</div>
-                    <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>
-  {member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited
-</div>
+                    <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited</div>
                   </div>
                 </div>
               ))}
-
-              {members.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>
-                  No members yet — invite your crew!
-                </div>
-              )}
+              {members.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>No members yet — invite your crew!</div>}
             </div>
-
-            {/* Quick Actions */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {[
-                { icon: '🗓', label: 'Itinerary', tab: 'itinerary' },
-                { icon: '🗳', label: 'Vote', tab: 'vote' },
-                { icon: '💬', label: 'Chat', tab: 'chat' },
-                { icon: '📸', label: 'Photos', tab: 'photos' },
-              ].map(action => (
-                <div key={action.label} onClick={() => setActiveTab(action.tab)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
+              {tabs.filter(t => t.id !== 'overview').map(action => (
+                <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
                   <div style={{ fontSize: '28px', marginBottom: '8px' }}>{action.icon}</div>
                   <div style={{ fontSize: '13px', fontWeight: 700 }}>{action.label}</div>
                 </div>
@@ -483,23 +822,16 @@ function EventPage() {
           </div>
         )}
 
-{activeTab === 'itinerary' && (
-  <ItineraryTab eventId={eventId!} user={user} event={event} />
-)}
+        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
+        {activeTab === 'flights' && event?.requires_flights && <FlightsTab eventId={eventId!} user={user} members={members} />}
+        {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} />}
+        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} />}
 
         {activeTab === 'vote' && (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
             <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗳</div>
             <div style={{ fontWeight: 700, marginBottom: '8px' }}>Voting coming soon</div>
             <div style={{ fontSize: '13px' }}>Let your crew vote on activities</div>
-          </div>
-        )}
-
-        {activeTab === 'chat' && (
-          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>💬</div>
-            <div style={{ fontWeight: 700, marginBottom: '8px' }}>Chat coming soon</div>
-            <div style={{ fontSize: '13px' }}>Message your crew</div>
           </div>
         )}
 
@@ -512,74 +844,48 @@ function EventPage() {
         )}
       </div>
 
-      {/* Invite Modal */}
       {showInviteModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }}></div>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '6px' }}>Invite Friends</h2>
             <p style={{ color: '#666', fontSize: '13px', marginBottom: '24px' }}>Invite people to {event?.name}</p>
-
-            {/* Share via Text */}
             <button onClick={shareViaText} style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
               <span style={{ fontSize: '20px' }}>💬</span> Share via Text
             </button>
-
-            {/* Copy Link */}
             <button onClick={copyLink} style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: linkCopied ? '#00E676' : '#F0F0F0', cursor: 'pointer', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
               <span style={{ fontSize: '20px' }}>{linkCopied ? '✅' : '🔗'}</span> {linkCopied ? 'Link Copied!' : 'Copy Invite Link'}
             </button>
-
-            {/* Divider */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ flex: 1, height: '1px', background: '#2A2A2A' }}></div>
+              <div style={{ flex: 1, height: '1px', background: '#2A2A2A' }} />
               <div style={{ fontSize: '11px', color: '#666', fontWeight: 700 }}>OR INVITE BY EMAIL</div>
-              <div style={{ flex: 1, height: '1px', background: '#2A2A2A' }}></div>
+              <div style={{ flex: 1, height: '1px', background: '#2A2A2A' }} />
             </div>
             <div style={{ marginBottom: '16px' }}>
-  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Invite As</label>
-  <div style={{ display: 'flex', gap: '8px' }}>
-    {[
-      { value: 'cohost', label: '⭐ Co-host', desc: 'Can manage event' },
-      { value: 'member', label: '👤 Member', desc: 'Standard access' },
-    ].map(option => (
-      <div key={option.value} onClick={() => setInviteRole(option.value)} style={{ flex: 1, padding: '10px', background: inviteRole === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${inviteRole === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
-        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
-        <div style={{ fontSize: '11px', color: inviteRole === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
-      </div>
-    ))}
-  </div>
-</div>
-            <input
-              value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)}
-              placeholder="friend@gmail.com"
-              type="email"
-              style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: '12px' }}
-            />
-
-            {inviteSuccess && (
-              <div style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', borderRadius: '10px', padding: '10px', textAlign: 'center', fontSize: '13px', color: '#00E676', fontWeight: 700, marginBottom: '12px' }}>
-                ✅ Invite sent!
+              <label style={labelStyle}>Invite As</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[{ value: 'cohost', label: '⭐ Co-host', desc: 'Can manage event' }, { value: 'member', label: '👤 Member', desc: 'Standard access' }].map(option => (
+                  <div key={option.value} onClick={() => setInviteRole(option.value)} style={{ flex: 1, padding: '10px', background: inviteRole === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${inviteRole === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
+                    <div style={{ fontSize: '11px', color: inviteRole === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
+                  </div>
+                ))}
               </div>
-            )}
-
+            </div>
+            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="friend@gmail.com" type="email" style={{ ...inputStyle, marginBottom: '12px' }} />
+            {inviteSuccess && <div style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', borderRadius: '10px', padding: '10px', textAlign: 'center', fontSize: '13px', color: '#00E676', fontWeight: 700, marginBottom: '12px' }}>✅ Invite sent!</div>}
             <button onClick={inviteByEmail} disabled={inviting || !inviteEmail.trim()} style={{ width: '100%', background: inviting || !inviteEmail.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: inviting || !inviteEmail.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
               {inviting ? 'Sending...' : 'Send Invite →'}
             </button>
-
-            <button onClick={() => setShowInviteModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>
-              Cancel
-            </button>
+            <button onClick={() => setShowInviteModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* Bottom Nav */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
         {[
           { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
-          { icon: '🗓', label: 'Plan', path: '/prototype/itinerary' },
+          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
           { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
           { icon: '💬', label: 'Chat', path: '/prototype/chat' },
           { icon: '👤', label: 'Profile', path: '/prototype/profile' },
@@ -590,7 +896,6 @@ function EventPage() {
           </button>
         ))}
       </div>
-
     </main>
   )
 }
