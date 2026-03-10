@@ -19,7 +19,6 @@ export default function Home() {
         The all-in-one app for planning unforgettable experiences with your crew.
       </p>
 
-      {/* Feature Tiles */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
@@ -29,8 +28,8 @@ export default function Home() {
         marginBottom: '40px'
       }}>
         {[
-          { icon: '🎉', title: 'Events', desc: 'Create your own group event.' },
-          { icon: '🗓', title: 'Itineraries', desc: 'Build a day-by-day plan for your group' },
+          { icon: '🎉', title: 'Events', desc: 'Create your own group event' },
+          { icon: '🗓', title: 'Itineraries', desc: 'Build a day-by-day plan your whole crew can see' },
           { icon: '🗳', title: 'Group Voting', desc: 'Let everyone vote on activities, restaurants and more' },
           { icon: '💬', title: 'Group Chats', desc: 'Message your crew and create subgroups in the app' },
         ].map((tile) => (
@@ -40,7 +39,6 @@ export default function Home() {
             borderRadius: '14px',
             padding: '20px',
             textAlign: 'left',
-            transition: 'border-color 0.2s',
           }}>
             <div style={{ fontSize: '28px', marginBottom: '10px' }}>{tile.icon}</div>
             <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>{tile.title}</div>
@@ -49,7 +47,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Email Capture */}
       <input
         type="email"
         placeholder="Enter your email for early access"
