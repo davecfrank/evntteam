@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState('')
   const [eventTime, setEventTime] = useState('')
   const [eventType, setEventType] = useState('Birthday')
+  const [invitePermission, setInvitePermission] = useState('admin_only')
   const [user, setUser] = useState<any>(null)
   const [saving, setSaving] = useState(false)
 
@@ -46,13 +47,13 @@ export default function Dashboard() {
     setSaving(true)
     const { data, error } = await supabase
       .from('events')
-      .insert({ name, destination, dates, event_type: eventType, owner_id: user.id })
+      .insert({ name, destination, dates, event_type: eventType, invite_permission: invitePermission, owner_id: user.id })
       .select()
       .single()
     if (!error && data) {
       setEvents(prev => [data, ...prev])
       setShowModal(false)
-      setName(''); setDestination(''); setDates(''); setEndDate(''); setEventTime('')
+      setName(''); setDestination(''); setDates(''); setEndDate(''); setEventTime(''); setInvitePermission('admin_only')
     }
     setSaving(false)
   }
@@ -147,7 +148,7 @@ export default function Dashboard() {
       {/* Create Event Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A' }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }}></div>
             <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '20px' }}>Create Event ✦</h2>
 
@@ -175,6 +176,21 @@ export default function Dashboard() {
             <div style={{ marginBottom: '14px' }}>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Event Time</label>
               <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Who Can Invite?</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {[
+                  { value: 'admin_only', label: '👑 Admin Only', desc: 'Only you can invite' },
+                  { value: 'anyone', label: '👥 Anyone', desc: 'All members can invite' },
+                ].map(option => (
+                  <div key={option.value} onClick={() => setInvitePermission(option.value)} style={{ flex: 1, padding: '12px', background: invitePermission === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${invitePermission === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: '18px', marginBottom: '4px' }}>{option.label}</div>
+                    <div style={{ fontSize: '11px', color: invitePermission === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={{ marginBottom: '20px' }}>
