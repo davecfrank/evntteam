@@ -750,7 +750,7 @@ function EventPage() {
     setTimeout(() => setInviteSuccess(false), 3000)
     setInviting(false)
   }
-  }
+
 
   function shareViaText() {
     const message = `Hey! You're invited to ${event?.name}. Join here: https://evnt.team/invite/${eventId}`
