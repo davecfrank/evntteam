@@ -725,11 +725,31 @@ function EventPage() {
   async function inviteByEmail() {
     if (!inviteEmail.trim()) return
     setInviting(true)
-    await supabase.from('event_members').insert({ event_id: eventId, user_email: inviteEmail.trim(), role: inviteRole, role_level: inviteRole })
-    setMembers(prev => [...prev, { user_email: inviteEmail.trim(), role: 'member' }])
-    setInviteEmail(''); setInviteSuccess(true)
+  
+    await supabase.from('event_members').insert({
+      event_id: eventId,
+      user_email: inviteEmail.trim(),
+      role: inviteRole,
+      role_level: inviteRole,
+    })
+  
+    await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: inviteEmail.trim(),
+        eventName: event?.name,
+        eventId,
+        inviterEmail: user?.email,
+      }),
+    })
+  
+    setMembers(prev => [...prev, { user_email: inviteEmail.trim(), role: inviteRole }])
+    setInviteEmail('')
+    setInviteSuccess(true)
     setTimeout(() => setInviteSuccess(false), 3000)
     setInviting(false)
+  }
   }
 
   function shareViaText() {
