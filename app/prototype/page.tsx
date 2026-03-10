@@ -1,12 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../../lib/supabase'
 
-const supabase = createClient(
-  'https://gwpdynchjkrytobpgjod.supabase.co',
-  'sb_publishable_PSX3RlRr2j2IgOMVlyGlrw_uWlzkIsb'
-)
 
 export default function Login() {
   const router = useRouter()

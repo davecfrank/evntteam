@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [name, setName] = useState('')
   const [destination, setDestination] = useState('')
   const [dates, setDates] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [eventTime, setEventTime] = useState('')
   const [eventType, setEventType] = useState('Birthday')
   const [user, setUser] = useState<any>(null)
   const [saving, setSaving] = useState(false)
@@ -50,18 +52,31 @@ export default function Dashboard() {
     if (!error && data) {
       setEvents(prev => [data, ...prev])
       setShowModal(false)
-      setName(''); setDestination(''); setDates('')
+      setName(''); setDestination(''); setDates(''); setEndDate(''); setEventTime('')
     }
     setSaving(false)
   }
 
   const getEmoji = (type: string) => eventTypes.find(e => e.label === type)?.emoji || '✨'
 
+  const getCountdown = (dateStr: string) => {
+    if (!dateStr) return null
+    const eventDate = new Date(dateStr)
+    if (isNaN(eventDate.getTime())) return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const diff = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    if (diff < 0) return null
+    if (diff === 0) return 'Today! 🎉'
+    if (diff === 1) return 'Tomorrow!'
+    return `${diff} days away`
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: '22px', fontWeight: 900 }}>Evnt<span style={{ color: '#FF4D00' }}>.Team</span></div>
-        <div onClick={() => supabase.auth.signOut().then(() => router.push('/prototype'))} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}>
+        <div onClick={() => router.push('/prototype/profile')} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}>
           {user?.email?.[0]?.toUpperCase() || 'U'}
         </div>
       </div>
@@ -100,6 +115,11 @@ export default function Dashboard() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{event.name}</div>
                   <div style={{ fontSize: '12px', color: '#666' }}>{event.destination || 'No location'} {event.dates ? `· ${event.dates}` : ''}</div>
+                  {getCountdown(event.dates) && (
+                    <div style={{ marginTop: '6px', display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
+                      ⏳ {getCountdown(event.dates)}
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: '18px', color: '#666' }}>→</div>
               </div>
@@ -115,8 +135,9 @@ export default function Dashboard() {
           { icon: '🗓', label: 'Plan', path: '/prototype/itinerary' },
           { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
           { icon: '💬', label: 'Chat', path: '/prototype/chat' },
+          { icon: '👤', label: 'Profile', path: '/prototype/profile' },
         ].map(item => (
-          <button key={item.label} onClick={() => router.push(item.path)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: item.active ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+          <button key={item.label} onClick={() => router.push(item.path)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: (item as any).active ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
             <span style={{ fontSize: '20px' }}>{item.icon}</span>
             {item.label}
           </button>
@@ -141,31 +162,20 @@ export default function Dashboard() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-  <div style={{ flex: 1 }}>
-    <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Start Date</label>
-    <input
-      type="date"
-      value={dates}
-      onChange={e => setDates(e.target.value)}
-      style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-    />
-  </div>
-  <div style={{ flex: 1 }}>
-    <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>End Date</label>
-    <input
-      type="date"
-      style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-    />
-  </div>
-</div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Start Date</label>
+                <input type="date" value={dates} onChange={e => setDates(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>End Date</label>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+              </div>
+            </div>
 
-<div style={{ marginBottom: '14px' }}>
-  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Event Time</label>
-  <input
-    type="time"
-    style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-  />
-</div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Event Time</label>
+              <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+            </div>
 
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Event Type</label>
