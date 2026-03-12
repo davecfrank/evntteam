@@ -662,6 +662,237 @@ function ChatTab({ eventId, user, members, flights, lodgings }: { eventId: strin
   )
 }
 
+function PhotosTab({ eventId, user, event, members }: { eventId: string, user: any, event: any, members: any[] }) {
+  const [photos, setPhotos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
+  const [caption, setCaption] = useState('')
+  const [lightbox, setLightbox] = useState<number | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const isHost = event?.owner_id === user?.id
+  const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('event_photos')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+      setPhotos(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    setSelectedFiles(files)
+    const urls = files.map(f => URL.createObjectURL(f))
+    setPreviews(urls)
+  }
+
+  async function uploadPhotos() {
+    if (!selectedFiles.length) return
+    setUploading(true)
+    setUploadProgress(0)
+    const newPhotos: any[] = []
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i]
+      const ext = file.name.split('.').pop()
+      const filePath = `${eventId}/${Date.now()}_${i}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('event-photos')
+        .upload(filePath, file)
+
+      if (uploadError) continue
+
+      const { data: urlData } = supabase.storage
+        .from('event-photos')
+        .getPublicUrl(filePath)
+
+      const { data: photoRow } = await supabase
+        .from('event_photos')
+        .insert({
+          event_id: eventId,
+          user_id: user.id,
+          user_email: user.email,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          caption: caption,
+        })
+        .select()
+        .single()
+
+      if (photoRow) newPhotos.push(photoRow)
+      setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100))
+    }
+
+    setPhotos(prev => [...newPhotos, ...prev])
+    setShowUpload(false)
+    setSelectedFiles([])
+    setPreviews(prev => { prev.forEach(u => URL.revokeObjectURL(u)); return [] })
+    setCaption('')
+    setUploading(false)
+  }
+
+  async function deletePhoto(photo: any) {
+    const filePath = photo.file_url.split('/event-photos/')[1]
+    await supabase.storage.from('event-photos').remove([filePath])
+    await supabase.from('event_photos').delete().eq('id', photo.id)
+    setPhotos(prev => prev.filter(p => p.id !== photo.id))
+    setConfirmDelete(null)
+    if (lightbox !== null) {
+      const remaining = photos.filter(p => p.id !== photo.id)
+      if (remaining.length === 0) setLightbox(null)
+      else if (lightbox >= remaining.length) setLightbox(remaining.length - 1)
+    }
+  }
+
+  function downloadPhoto(photo: any) {
+    const a = document.createElement('a')
+    a.href = photo.file_url
+    a.download = photo.file_name
+    a.target = '_blank'
+    a.click()
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading photos...</div>
+
+  return (
+    <div>
+      {/* Upload Button */}
+      <button onClick={() => setShowUpload(true)} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '20px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
+        📸 Upload Photos
+      </button>
+
+      {/* Photo Grid */}
+      {photos.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#666', padding: '40px 0' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>📷</div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>No photos yet</div>
+          <div style={{ fontSize: '13px' }}>Be the first to share a memory!</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', borderRadius: '12px', overflow: 'hidden' }}>
+          {photos.map((photo, idx) => (
+            <div key={photo.id} onClick={() => setLightbox(idx)} style={{ aspectRatio: '1', cursor: 'pointer', position: 'relative', overflow: 'hidden', background: '#1A1A1A' }}>
+              <img src={photo.file_url} alt={photo.caption || photo.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>📸 Upload Photos</h2>
+
+            {/* File picker */}
+            <label style={{ display: 'block', width: '100%', background: '#0A0A0A', border: '2px dashed #2A2A2A', borderRadius: '12px', padding: '24px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', boxSizing: 'border-box' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>📁</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0', marginBottom: '4px' }}>
+                {selectedFiles.length ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} selected` : 'Tap to select photos'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>JPG, PNG, WEBP</div>
+              <input type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
+            </label>
+
+            {/* Previews */}
+            {previews.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '16px', borderRadius: '8px', overflow: 'hidden' }}>
+                {previews.map((url, i) => (
+                  <div key={i} style={{ aspectRatio: '1', position: 'relative', background: '#1A1A1A' }}>
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Caption */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>Caption (optional)</label>
+              <input value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add a caption..." style={inputStyle} />
+            </div>
+
+            {/* Progress */}
+            {uploading && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ height: '6px', background: '#2A2A2A', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#FF4D00', borderRadius: '3px', width: `${uploadProgress}%`, transition: 'width 0.3s' }} />
+                </div>
+                <div style={{ textAlign: 'center', fontSize: '12px', color: '#666', marginTop: '6px' }}>{uploadProgress}%</div>
+              </div>
+            )}
+
+            <button onClick={uploadPhotos} disabled={uploading || !selectedFiles.length} style={{ width: '100%', background: uploading || !selectedFiles.length ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: uploading || !selectedFiles.length ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: uploading || !selectedFiles.length ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
+              {uploading ? `Uploading... ${uploadProgress}%` : `Upload ${selectedFiles.length || ''} Photo${selectedFiles.length !== 1 ? 's' : ''} →`}
+            </button>
+            <button onClick={() => { setShowUpload(false); setSelectedFiles([]); setPreviews(prev => { prev.forEach(u => URL.revokeObjectURL(u)); return [] }); setCaption('') }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox !== null && photos[lightbox] && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 300, display: 'flex', flexDirection: 'column' }}>
+          {/* Top bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
+            <button onClick={() => { setLightbox(null); setConfirmDelete(null) }} style={{ background: 'none', border: 'none', color: '#F0F0F0', fontSize: '16px', fontWeight: 700, cursor: 'pointer', padding: '8px' }}>✕ Close</button>
+            <div style={{ fontSize: '13px', color: '#666' }}>{lightbox + 1} / {photos.length}</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => downloadPhoto(photos[lightbox])} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#F0F0F0', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>⬇</button>
+              {(photos[lightbox].user_id === user?.id || isHost || isCohost) && (
+                <button onClick={() => setConfirmDelete(photos[lightbox].id)} style={{ background: 'rgba(255,77,0,0.15)', border: 'none', borderRadius: '8px', color: '#FF4D00', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>🗑</button>
+              )}
+            </div>
+          </div>
+
+          {/* Image */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', position: 'relative' }}>
+            {lightbox > 0 && (
+              <button onClick={() => setLightbox(lightbox - 1)} style={{ position: 'absolute', left: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>‹</button>
+            )}
+            <img src={photos[lightbox].file_url} alt={photos[lightbox].caption || ''} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+            {lightbox < photos.length - 1 && (
+              <button onClick={() => setLightbox(lightbox + 1)} style={{ position: 'absolute', right: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>›</button>
+            )}
+          </div>
+
+          {/* Caption & attribution */}
+          <div style={{ padding: '16px 20px 32px', textAlign: 'center' }}>
+            {photos[lightbox].caption && <div style={{ fontSize: '15px', color: '#F0F0F0', fontWeight: 600, marginBottom: '6px' }}>{photos[lightbox].caption}</div>}
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              By {photos[lightbox].user_email} · {new Date(photos[lightbox].created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+
+          {/* Delete confirmation */}
+          {confirmDelete === photos[lightbox].id && (
+            <div style={{ position: 'absolute', bottom: '80px', left: '20px', right: '20px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>Delete this photo?</div>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>This can&apos;t be undone</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => deletePhoto(photos[lightbox])} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>Delete</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EventPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -880,13 +1111,7 @@ function EventPage() {
           </div>
         )}
 
-        {activeTab === 'photos' && (
-          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>📸</div>
-            <div style={{ fontWeight: 700, marginBottom: '8px' }}>Photo album coming soon</div>
-            <div style={{ fontSize: '13px' }}>Share and download memories</div>
-          </div>
-        )}
+        {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} />}
       </div>
 
       {showInviteModal && (
