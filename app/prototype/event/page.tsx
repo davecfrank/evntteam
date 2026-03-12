@@ -898,17 +898,22 @@ function PhotosTab({ eventId, user, event, members, getName }: { eventId: string
 
   const filteredMembers = mentionQuery !== null ? memberList.filter(m => m.name.toLowerCase().includes(mentionQuery) || m.email.toLowerCase().includes(mentionQuery)) : []
 
-  // Render @mentions highlighted in comment text
+  // Render @mentions highlighted in comment text (supports multi-word names like @Dave Frank)
   function renderCommentText(text: string) {
-    const parts = text.split(/(@\w+)/g)
-    return parts.map((part, i) => {
+    if (!memberList.length) return <>{text}</>
+    // Build regex matching known member names (longest first to avoid partial matches)
+    const sortedNames = memberList.map(m => m.name).sort((a, b) => b.length - a.length)
+    const escaped = sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    const regex = new RegExp(`(@(?:${escaped.join('|')}|\\w+))`, 'g')
+    const parts = text.split(regex)
+    return <>{parts.map((part, i) => {
       if (part.startsWith('@')) {
         const name = part.slice(1)
         const isMember = memberList.some(m => m.name === name)
         if (isMember) return <span key={i} style={{ color: '#FF4D00', fontWeight: 700 }}>{part}</span>
       }
       return <span key={i}>{part}</span>
-    })
+    })}</>
   }
 
   // Comment component for rendering a single comment with reactions, reply
