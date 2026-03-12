@@ -6,6 +6,9 @@ import { supabase } from '../../../lib/supabase'
 const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }
 
+const PHOTO_REACTIONS = ['❤️', '😂', '🔥', '😍', '👏', '🤩']
+const COMMENT_REACTIONS = ['👍', '👎', '🔥', '😂', '❤️', '😮']
+
 function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   return (
     <div onClick={() => onChange(!value)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: value ? bg : '#0A0A0A', border: `1px solid ${value ? color : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer' }}>
@@ -674,9 +677,28 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
   const [lightbox, setLightbox] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Reactions & comments
+  const [reactions, setReactions] = useState<Record<string, any[]>>({})
+  const [comments, setComments] = useState<Record<string, any[]>>({})
+  const [commentReactions, setCommentReactions] = useState<Record<string, any[]>>({})
+  const [newComment, setNewComment] = useState('')
+  const [sendingComment, setSendingComment] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [replyTo, setReplyTo] = useState<any>(null)
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const commentInputRef = useRef<HTMLInputElement>(null)
 
   const isHost = event?.owner_id === user?.id
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
+
+  // Build member list for @mentions (email username + full email)
+  const memberList = members.map(m => ({ email: m.user_email, name: m.user_email.split('@')[0] }))
+  if (event?.owner_id) {
+    const ownerEmail = user?.email
+    if (ownerEmail && !memberList.some(m => m.email === ownerEmail)) {
+      memberList.unshift({ email: ownerEmail, name: ownerEmail.split('@')[0] })
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -686,9 +708,64 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
       setPhotos(data || [])
+
+      if (data && data.length > 0) {
+        const photoIds = data.map((p: any) => p.id)
+        const { data: rxns } = await supabase.from('photo_reactions').select('*').in('photo_id', photoIds)
+        const rxnMap: Record<string, any[]> = {}
+        ;(rxns || []).forEach((r: any) => { if (!rxnMap[r.photo_id]) rxnMap[r.photo_id] = []; rxnMap[r.photo_id].push(r) })
+        setReactions(rxnMap)
+
+        const { data: cmts } = await supabase.from('photo_comments').select('*').in('photo_id', photoIds).order('created_at', { ascending: true })
+        const cmtMap: Record<string, any[]> = {}
+        ;(cmts || []).forEach((c: any) => { if (!cmtMap[c.photo_id]) cmtMap[c.photo_id] = []; cmtMap[c.photo_id].push(c) })
+        setComments(cmtMap)
+
+        if (cmts && cmts.length > 0) {
+          const cmtIds = cmts.map((c: any) => c.id)
+          const { data: cRxns } = await supabase.from('comment_reactions').select('*').in('comment_id', cmtIds)
+          const cRxnMap: Record<string, any[]> = {}
+          ;(cRxns || []).forEach((r: any) => { if (!cRxnMap[r.comment_id]) cRxnMap[r.comment_id] = []; cRxnMap[r.comment_id].push(r) })
+          setCommentReactions(cRxnMap)
+        }
+      }
       setLoading(false)
     }
     load()
+  }, [eventId])
+
+  // Real-time subscriptions
+  useEffect(() => {
+    const rxnSub = supabase.channel(`photo-rxn:${eventId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'photo_reactions' }, payload => {
+        const r = payload.new as any
+        setReactions(prev => ({ ...prev, [r.photo_id]: [...(prev[r.photo_id] || []), r] }))
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'photo_reactions' }, payload => {
+        const r = payload.old as any
+        setReactions(prev => ({ ...prev, [r.photo_id]: (prev[r.photo_id] || []).filter((x: any) => x.id !== r.id) }))
+      })
+      .subscribe()
+
+    const cmtSub = supabase.channel(`photo-cmt:${eventId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'photo_comments' }, payload => {
+        const c = payload.new as any
+        setComments(prev => ({ ...prev, [c.photo_id]: [...(prev[c.photo_id] || []), c] }))
+      })
+      .subscribe()
+
+    const cRxnSub = supabase.channel(`cmt-rxn:${eventId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comment_reactions' }, payload => {
+        const r = payload.new as any
+        setCommentReactions(prev => ({ ...prev, [r.comment_id]: [...(prev[r.comment_id] || []), r] }))
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comment_reactions' }, payload => {
+        const r = payload.old as any
+        setCommentReactions(prev => ({ ...prev, [r.comment_id]: (prev[r.comment_id] || []).filter((x: any) => x.id !== r.id) }))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(rxnSub); supabase.removeChannel(cmtSub); supabase.removeChannel(cRxnSub) }
   }, [eventId])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -705,39 +782,17 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
     setUploading(true)
     setUploadProgress(0)
     const newPhotos: any[] = []
-
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i]
       const ext = file.name.split('.').pop()
       const filePath = `${eventId}/${Date.now()}_${i}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('event-photos')
-        .upload(filePath, file)
-
+      const { error: uploadError } = await supabase.storage.from('event-photos').upload(filePath, file)
       if (uploadError) continue
-
-      const { data: urlData } = supabase.storage
-        .from('event-photos')
-        .getPublicUrl(filePath)
-
-      const { data: photoRow } = await supabase
-        .from('event_photos')
-        .insert({
-          event_id: eventId,
-          user_id: user.id,
-          user_email: user.email,
-          file_url: urlData.publicUrl,
-          file_name: file.name,
-          caption: caption,
-        })
-        .select()
-        .single()
-
+      const { data: urlData } = supabase.storage.from('event-photos').getPublicUrl(filePath)
+      const { data: photoRow } = await supabase.from('event_photos').insert({ event_id: eventId, user_id: user.id, user_email: user.email, file_url: urlData.publicUrl, file_name: file.name, caption }).select().single()
       if (photoRow) newPhotos.push(photoRow)
       setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100))
     }
-
     setPhotos(prev => [...newPhotos, ...prev])
     setShowUpload(false)
     setSelectedFiles([])
@@ -751,6 +806,8 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
     await supabase.storage.from('event-photos').remove([filePath])
     await supabase.from('event_photos').delete().eq('id', photo.id)
     setPhotos(prev => prev.filter(p => p.id !== photo.id))
+    setReactions(prev => { const next = { ...prev }; delete next[photo.id]; return next })
+    setComments(prev => { const next = { ...prev }; delete next[photo.id]; return next })
     setConfirmDelete(null)
     if (lightbox !== null) {
       const remaining = photos.filter(p => p.id !== photo.id)
@@ -767,7 +824,137 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
     a.click()
   }
 
+  async function toggleReaction(photoId: string, emoji: string) {
+    const existing = (reactions[photoId] || []).find((r: any) => r.user_id === user.id && r.emoji === emoji)
+    if (existing) {
+      await supabase.from('photo_reactions').delete().eq('id', existing.id)
+      setReactions(prev => ({ ...prev, [photoId]: (prev[photoId] || []).filter((r: any) => r.id !== existing.id) }))
+    } else {
+      const { data } = await supabase.from('photo_reactions').insert({ photo_id: photoId, user_id: user.id, user_email: user.email, emoji }).select().single()
+      if (data) setReactions(prev => ({ ...prev, [photoId]: [...(prev[photoId] || []), data] }))
+    }
+  }
+
+  async function toggleCommentReaction(commentId: string, emoji: string) {
+    const existing = (commentReactions[commentId] || []).find((r: any) => r.user_id === user.id && r.emoji === emoji)
+    if (existing) {
+      await supabase.from('comment_reactions').delete().eq('id', existing.id)
+      setCommentReactions(prev => ({ ...prev, [commentId]: (prev[commentId] || []).filter((r: any) => r.id !== existing.id) }))
+    } else {
+      const { data } = await supabase.from('comment_reactions').insert({ comment_id: commentId, user_id: user.id, user_email: user.email, emoji }).select().single()
+      if (data) setCommentReactions(prev => ({ ...prev, [commentId]: [...(prev[commentId] || []), data] }))
+    }
+  }
+
+  async function addComment(photoId: string) {
+    if (!newComment.trim()) return
+    setSendingComment(true)
+    const { data } = await supabase.from('photo_comments').insert({ photo_id: photoId, user_id: user.id, user_email: user.email, content: newComment.trim(), parent_id: replyTo?.id || null }).select().single()
+    if (data) setComments(prev => ({ ...prev, [photoId]: [...(prev[photoId] || []), data] }))
+    setNewComment('')
+    setReplyTo(null)
+    setMentionQuery(null)
+    setSendingComment(false)
+  }
+
+  function getReactionCounts(photoId: string) {
+    const pr = reactions[photoId] || []
+    return PHOTO_REACTIONS.map(emoji => {
+      const matching = pr.filter((r: any) => r.emoji === emoji)
+      return { emoji, count: matching.length, userReacted: matching.some((r: any) => r.user_id === user?.id) }
+    }).filter(r => r.count > 0)
+  }
+
+  function getCommentReactionCounts(commentId: string) {
+    const cr = commentReactions[commentId] || []
+    return COMMENT_REACTIONS.map(emoji => {
+      const matching = cr.filter((r: any) => r.emoji === emoji)
+      return { emoji, count: matching.length, userReacted: matching.some((r: any) => r.user_id === user?.id) }
+    }).filter(r => r.count > 0)
+  }
+
+  // @mention handling
+  function handleCommentInput(val: string) {
+    setNewComment(val)
+    const lastAt = val.lastIndexOf('@')
+    if (lastAt >= 0) {
+      const afterAt = val.slice(lastAt + 1)
+      if (!afterAt.includes(' ') && afterAt.length < 30) {
+        setMentionQuery(afterAt.toLowerCase())
+        return
+      }
+    }
+    setMentionQuery(null)
+  }
+
+  function insertMention(name: string) {
+    const lastAt = newComment.lastIndexOf('@')
+    if (lastAt >= 0) {
+      setNewComment(newComment.slice(0, lastAt) + '@' + name + ' ')
+      setMentionQuery(null)
+      commentInputRef.current?.focus()
+    }
+  }
+
+  const filteredMembers = mentionQuery !== null ? memberList.filter(m => m.name.toLowerCase().includes(mentionQuery) || m.email.toLowerCase().includes(mentionQuery)) : []
+
+  // Render @mentions highlighted in comment text
+  function renderCommentText(text: string) {
+    const parts = text.split(/(@\w+)/g)
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        const name = part.slice(1)
+        const isMember = memberList.some(m => m.name === name)
+        if (isMember) return <span key={i} style={{ color: '#FF4D00', fontWeight: 700 }}>{part}</span>
+      }
+      return <span key={i}>{part}</span>
+    })
+  }
+
+  // Comment component for rendering a single comment with reactions, reply
+  function CommentRow({ c, indent }: { c: any, indent: boolean }) {
+    const [showCRxn, setShowCRxn] = useState(false)
+    const counts = getCommentReactionCounts(c.id)
+    return (
+      <div style={{ paddingLeft: indent ? '20px' : '0', marginBottom: '8px' }}>
+        <div style={{ background: '#0A0A0A', border: '1px solid #1A1A1A', borderRadius: '10px', padding: '10px 12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00' }}>{c.user_email.split('@')[0]}</span>
+            <span style={{ fontSize: '10px', color: '#444' }}>{new Date(c.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+          </div>
+          <div style={{ fontSize: '13px', color: '#ddd', marginBottom: '6px' }}>{renderCommentText(c.content)}</div>
+          {/* Reaction counts */}
+          {counts.length > 0 && (
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+              {counts.map(r => (
+                <span key={r.emoji} onClick={() => toggleCommentReaction(c.id, r.emoji)} style={{ fontSize: '11px', background: r.userReacted ? 'rgba(255,77,0,0.15)' : 'rgba(255,255,255,0.06)', border: r.userReacted ? '1px solid #FF4D00' : '1px solid #2A2A2A', borderRadius: '10px', padding: '2px 6px', cursor: 'pointer' }}>
+                  {r.emoji} {r.count}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span onClick={() => setShowCRxn(!showCRxn)} style={{ fontSize: '11px', color: '#666', cursor: 'pointer', fontWeight: 600 }}>React</span>
+            {!indent && <span onClick={() => { setReplyTo(c); commentInputRef.current?.focus() }} style={{ fontSize: '11px', color: '#666', cursor: 'pointer', fontWeight: 600 }}>Reply</span>}
+          </div>
+          {showCRxn && (
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+              {COMMENT_REACTIONS.map(emoji => (
+                <button key={emoji} onClick={() => { toggleCommentReaction(c.id, emoji); setShowCRxn(false) }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '4px 8px', fontSize: '16px', cursor: 'pointer' }}>{emoji}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading photos...</div>
+
+  const currentPhoto = lightbox !== null ? photos[lightbox] : null
+  const currentComments = currentPhoto ? (comments[currentPhoto.id] || []) : []
+  const topLevelComments = currentComments.filter((c: any) => !c.parent_id)
+  const getReplies = (parentId: string) => currentComments.filter((c: any) => c.parent_id === parentId)
 
   return (
     <div>
@@ -785,12 +972,24 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
           <div style={{ fontSize: '13px' }}>Be the first to share a memory!</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', borderRadius: '12px', overflow: 'hidden' }}>
-          {photos.map((photo, idx) => (
-            <div key={photo.id} onClick={() => setLightbox(idx)} style={{ aspectRatio: '1', cursor: 'pointer', position: 'relative', overflow: 'hidden', background: '#1A1A1A' }}>
-              <img src={photo.file_url} alt={photo.caption || photo.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', borderRadius: '12px', overflow: 'hidden', padding: '0 2px' }}>
+          {photos.map((photo, idx) => {
+            const counts = getReactionCounts(photo.id)
+            const cmtCount = (comments[photo.id] || []).length
+            return (
+              <div key={photo.id} onClick={() => { setLightbox(idx); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ aspectRatio: '1', cursor: 'pointer', position: 'relative', overflow: 'hidden', background: '#1A1A1A', borderRadius: '6px' }}>
+                <img src={photo.file_url} alt={photo.caption || photo.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {(counts.length > 0 || cmtCount > 0) && (
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.7))', padding: '12px 6px 4px', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {counts.slice(0, 3).map(r => (
+                      <span key={r.emoji} style={{ fontSize: '10px', background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '1px 4px' }}>{r.emoji}{r.count}</span>
+                    ))}
+                    {cmtCount > 0 && <span style={{ fontSize: '10px', color: '#ccc' }}>💬{cmtCount}</span>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -803,8 +1002,6 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
               <h2 style={{ fontSize: '22px', fontWeight: 800 }}>📸 {selectedFiles.length} Photo{selectedFiles.length !== 1 ? 's' : ''}</h2>
               <span onClick={() => fileInputRef.current?.click()} style={{ fontSize: '13px', color: '#FF4D00', fontWeight: 600, cursor: 'pointer' }}>Change</span>
             </div>
-
-            {/* Previews */}
             {previews.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '16px', borderRadius: '8px', overflow: 'hidden' }}>
                 {previews.map((url, i) => (
@@ -814,14 +1011,10 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
                 ))}
               </div>
             )}
-
-            {/* Caption */}
             <div style={{ marginBottom: '16px' }}>
               <label style={labelStyle}>Caption (optional)</label>
               <input value={caption} onChange={e => setCaption(e.target.value)} placeholder="Add a caption..." style={inputStyle} />
             </div>
-
-            {/* Progress */}
             {uploading && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ height: '6px', background: '#2A2A2A', borderRadius: '3px', overflow: 'hidden' }}>
@@ -830,7 +1023,6 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
                 <div style={{ textAlign: 'center', fontSize: '12px', color: '#666', marginTop: '6px' }}>{uploadProgress}%</div>
               </div>
             )}
-
             <button onClick={uploadPhotos} disabled={uploading || !selectedFiles.length} style={{ width: '100%', background: uploading || !selectedFiles.length ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: uploading || !selectedFiles.length ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: uploading || !selectedFiles.length ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
               {uploading ? `Uploading... ${uploadProgress}%` : `Upload ${selectedFiles.length || ''} Photo${selectedFiles.length !== 1 ? 's' : ''} →`}
             </button>
@@ -840,47 +1032,111 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
       )}
 
       {/* Lightbox */}
-      {lightbox !== null && photos[lightbox] && (
+      {lightbox !== null && currentPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 300, display: 'flex', flexDirection: 'column' }}>
           {/* Top bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
-            <button onClick={() => { setLightbox(null); setConfirmDelete(null) }} style={{ background: 'none', border: 'none', color: '#F0F0F0', fontSize: '16px', fontWeight: 700, cursor: 'pointer', padding: '8px' }}>✕ Close</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', flexShrink: 0 }}>
+            <button onClick={() => { setLightbox(null); setConfirmDelete(null); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ background: 'none', border: 'none', color: '#F0F0F0', fontSize: '16px', fontWeight: 700, cursor: 'pointer', padding: '8px' }}>✕ Close</button>
             <div style={{ fontSize: '13px', color: '#666' }}>{lightbox + 1} / {photos.length}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => downloadPhoto(photos[lightbox])} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#F0F0F0', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>⬇</button>
-              {(photos[lightbox].user_id === user?.id || isHost || isCohost) && (
-                <button onClick={() => setConfirmDelete(photos[lightbox].id)} style={{ background: 'rgba(255,77,0,0.15)', border: 'none', borderRadius: '8px', color: '#FF4D00', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>🗑</button>
+              <button onClick={() => downloadPhoto(currentPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#F0F0F0', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>⬇</button>
+              {(currentPhoto.user_id === user?.id || isHost || isCohost) && (
+                <button onClick={() => setConfirmDelete(currentPhoto.id)} style={{ background: 'rgba(255,77,0,0.15)', border: 'none', borderRadius: '8px', color: '#FF4D00', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>🗑</button>
               )}
             </div>
           </div>
 
           {/* Image */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', position: 'relative', flexShrink: 0 }}>
             {lightbox > 0 && (
-              <button onClick={() => setLightbox(lightbox - 1)} style={{ position: 'absolute', left: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>‹</button>
+              <button onClick={() => { setLightbox(lightbox - 1); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ position: 'absolute', left: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>‹</button>
             )}
-            <img src={photos[lightbox].file_url} alt={photos[lightbox].caption || ''} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+            <img src={currentPhoto.file_url} alt={currentPhoto.caption || ''} style={{ maxWidth: '100%', maxHeight: '40vh', objectFit: 'contain', borderRadius: '8px' }} />
             {lightbox < photos.length - 1 && (
-              <button onClick={() => setLightbox(lightbox + 1)} style={{ position: 'absolute', right: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>›</button>
+              <button onClick={() => { setLightbox(lightbox + 1); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ position: 'absolute', right: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1 }}>›</button>
             )}
           </div>
 
-          {/* Caption & attribution */}
-          <div style={{ padding: '16px 20px 32px', textAlign: 'center' }}>
-            {photos[lightbox].caption && <div style={{ fontSize: '15px', color: '#F0F0F0', fontWeight: 600, marginBottom: '6px' }}>{photos[lightbox].caption}</div>}
-            <div style={{ fontSize: '12px', color: '#666' }}>
-              By {photos[lightbox].user_email} · {new Date(photos[lightbox].created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {/* Interaction area */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 32px' }}>
+            {/* Caption & attribution */}
+            {currentPhoto.caption && <div style={{ fontSize: '15px', color: '#F0F0F0', fontWeight: 600, marginBottom: '4px', textAlign: 'center' }}>{currentPhoto.caption}</div>}
+            <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '12px' }}>
+              By {currentPhoto.user_email.split('@')[0]} · {new Date(currentPhoto.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>
+
+            {/* Emoji reaction bar */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {PHOTO_REACTIONS.map(emoji => {
+                const pr = reactions[currentPhoto.id] || []
+                const count = pr.filter((r: any) => r.emoji === emoji).length
+                const reacted = pr.some((r: any) => r.emoji === emoji && r.user_id === user.id)
+                return (
+                  <button key={emoji} onClick={() => toggleReaction(currentPhoto.id, emoji)} style={{ background: reacted ? 'rgba(255,77,0,0.15)' : 'rgba(255,255,255,0.08)', border: reacted ? '1px solid #FF4D00' : '1px solid #2A2A2A', borderRadius: '20px', padding: '5px 10px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {emoji}{count > 0 && <span style={{ fontSize: '12px', color: reacted ? '#FF4D00' : '#888', fontWeight: 700 }}>{count}</span>}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Comments toggle */}
+            <button onClick={() => setShowComments(!showComments)} style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 14px', color: '#F0F0F0', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showComments ? '12px' : '0' }}>
+              <span>💬 Comments {currentComments.length > 0 ? `(${currentComments.length})` : ''}</span>
+              <span style={{ color: '#666' }}>{showComments ? '▲' : '▼'}</span>
+            </button>
+
+            {/* Comments section */}
+            {showComments && (
+              <div>
+                {topLevelComments.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', padding: '16px 0' }}>No comments yet</div>
+                ) : (
+                  <div style={{ marginBottom: '12px' }}>
+                    {topLevelComments.map((c: any) => (
+                      <div key={c.id}>
+                        <CommentRow c={c} indent={false} />
+                        {getReplies(c.id).map((r: any) => <CommentRow key={r.id} c={r} indent={true} />)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reply indicator */}
+                {replyTo && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,77,0,0.1)', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', fontSize: '12px', color: '#FF4D00', fontWeight: 600 }}>
+                    <span>Replying to @{replyTo.user_email.split('@')[0]}</span>
+                    <span onClick={() => setReplyTo(null)} style={{ cursor: 'pointer', fontSize: '14px' }}>✕</span>
+                  </div>
+                )}
+
+                {/* @mention dropdown */}
+                {mentionQuery !== null && filteredMembers.length > 0 && (
+                  <div style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '10px', marginBottom: '8px', maxHeight: '120px', overflowY: 'auto' }}>
+                    {filteredMembers.slice(0, 5).map(m => (
+                      <div key={m.email} onClick={() => insertMention(m.name)} style={{ padding: '10px 12px', cursor: 'pointer', fontSize: '13px', color: '#F0F0F0', borderBottom: '1px solid #1A1A1A' }}>
+                        <span style={{ fontWeight: 700, color: '#FF4D00' }}>@{m.name}</span> <span style={{ color: '#666', fontSize: '11px' }}>{m.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Comment input */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input ref={commentInputRef} value={newComment} onChange={e => handleCommentInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(currentPhoto.id) } }} placeholder="Add a comment... use @ to mention" style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
+                  <button onClick={() => addComment(currentPhoto.id)} disabled={sendingComment || !newComment.trim()} style={{ background: sendingComment || !newComment.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 16px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: sendingComment || !newComment.trim() ? 'not-allowed' : 'pointer' }}>→</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Delete confirmation */}
-          {confirmDelete === photos[lightbox].id && (
-            <div style={{ position: 'absolute', bottom: '80px', left: '20px', right: '20px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+          {confirmDelete === currentPhoto.id && (
+            <div style={{ position: 'absolute', bottom: '80px', left: '20px', right: '20px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '20px', textAlign: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>Delete this photo?</div>
               <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>This can&apos;t be undone</div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => setConfirmDelete(null)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={() => deletePhoto(photos[lightbox])} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>Delete</button>
+                <button onClick={() => deletePhoto(currentPhoto)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>Delete</button>
               </div>
             </div>
           )}
