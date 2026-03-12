@@ -798,8 +798,8 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>📸 Upload Photos</h2>
 
             {/* File picker */}
-            <label style={{ display: 'block', width: '100%', background: selectedFiles.length ? 'rgba(0,230,118,0.1)' : '#161616', border: `1px solid ${selectedFiles.length ? '#00E676' : '#2A2A2A'}`, borderRadius: '12px', padding: '16px', textAlign: 'center', cursor: 'pointer', marginBottom: '16px', boxSizing: 'border-box', fontSize: '15px', fontWeight: 700, color: selectedFiles.length ? '#00E676' : '#F0F0F0' }}>
-              {selectedFiles.length ? `✅ ${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected` : '📷 Select Photos'}
+            <label style={{ display: 'inline-block', background: selectedFiles.length ? 'rgba(0,230,118,0.15)' : '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', cursor: 'pointer', marginBottom: '16px', fontSize: '14px', fontWeight: 700, color: selectedFiles.length ? '#00E676' : '#fff', boxShadow: selectedFiles.length ? 'none' : '0 3px 10px rgba(255, 77, 0, 0.4)' }}>
+              {selectedFiles.length ? `✅ ${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected` : 'Select Photos'}
               <input type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
             </label>
 
