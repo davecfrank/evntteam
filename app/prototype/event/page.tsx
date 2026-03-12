@@ -691,8 +691,8 @@ function PhotosTab({ eventId, user, event, members, getName }: { eventId: string
   const isHost = event?.owner_id === user?.id
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
 
-  // Build member list for @mentions (email username + full email)
-  const memberList = members.map(m => ({ email: m.user_email, name: getName(m.user_email) }))
+  // Build member list for @mentions (deduplicated by email)
+  const memberList = Array.from(new Map(members.map(m => [m.user_email, { email: m.user_email, name: getName(m.user_email) }])).values())
   if (event?.owner_id) {
     const ownerEmail = user?.email
     if (ownerEmail && !memberList.some(m => m.email === ownerEmail)) {
@@ -1190,7 +1190,14 @@ function EventPage() {
       if (!eventData) { router.push('/prototype/dashboard'); return }
       setEvent(eventData)
       const { data: membersData } = await supabase.from('event_members').select('*').eq('event_id', eventId)
-      setMembers(membersData || [])
+      // Deduplicate by user_email (keep first occurrence)
+      const seen = new Set<string>()
+      const uniqueMembers = (membersData || []).filter((m: any) => {
+        if (seen.has(m.user_email)) return false
+        seen.add(m.user_email)
+        return true
+      })
+      setMembers(uniqueMembers)
       let flightsData: any[] = []
       let lodgingsData: any[] = []
       if (eventData.requires_flights) {
