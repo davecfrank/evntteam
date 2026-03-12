@@ -680,6 +680,7 @@ function EventPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteRole, setInviteRole] = useState('member')
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -706,7 +707,9 @@ function EventPage() {
   }, [eventId])
 
   const isHost = event?.owner_id === user?.id
+  const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
   const canInvite = isHost || event?.invite_permission === 'anyone'
+  const canRemove = isHost || isCohost
 
   const getCountdown = (dateStr: string) => {
     if (!dateStr) return null
@@ -751,6 +754,12 @@ function EventPage() {
     setInviting(false)
   }
 
+
+  async function removeMember(member: any) {
+    await supabase.from('event_members').delete().eq('id', member.id)
+    setMembers(prev => prev.filter(m => m.id !== member.id))
+    setConfirmRemove(null)
+  }
 
   function shareViaText() {
     const message = `Hey! You're invited to ${event?.name}. Join here: https://evnt.team/invite/${eventId}`
@@ -820,15 +829,31 @@ function EventPage() {
                   <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
                 </div>
               </div>
-              {members.map((member, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{member.user_email?.[0]?.toUpperCase()}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{member.user_email}</div>
-                    <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited</div>
+              {members.map((member, i) => {
+                const canRemoveThis = canRemove && !(isCohost && !isHost && member.role_level === 'cohost')
+                return confirmRemove === member.id ? (
+                  <div key={i} style={{ padding: '14px', background: '#1A1010', borderRadius: '10px', marginBottom: '8px', border: '1px solid #FF4D00' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0', marginBottom: '12px' }}>Remove {member.user_email}?</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => removeMember(member)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Remove</button>
+                      <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, background: '#2A2A2A', border: 'none', borderRadius: '8px', padding: '10px', color: '#F0F0F0', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{member.user_email?.[0]?.toUpperCase()}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{member.user_email}</div>
+                      <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited</div>
+                    </div>
+                    {canRemoveThis && (
+                      <div onClick={() => setConfirmRemove(member.id)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                        <span style={{ color: '#FF4D00', fontSize: '14px', fontWeight: 700 }}>✕</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
               {members.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>No members yet — invite your crew!</div>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
