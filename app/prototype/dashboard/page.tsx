@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [requiresFlights, setRequiresFlights] = useState(false)
   const [requiresLodging, setRequiresLodging] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [saving, setSaving] = useState(false)
 
   const eventTypes = [
@@ -34,6 +35,8 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/prototype'); return }
       setUser(user)
+      const { data: profileData } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+      if (profileData) setProfile(profileData)
       const { data } = await supabase
         .from('events')
         .select('*')
@@ -110,14 +113,14 @@ export default function Dashboard() {
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: '22px', fontWeight: 900 }}>Evnt<span style={{ color: '#FF4D00' }}>.Team</span></div>
         <div onClick={() => router.push('/prototype/profile')} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}>
-          {user?.email?.[0]?.toUpperCase() || 'U'}
+          {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
         </div>
       </div>
 
       <div style={{ padding: '24px', maxWidth: '600px', margin: '0 auto', paddingBottom: '100px' }}>
         <div style={{ marginBottom: '28px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '6px' }}>
-            Hey {user?.email?.split('@')[0]} 👋
+            Hey {profile?.full_name || user?.email?.split('@')[0]} 👋
           </h1>
           <p style={{ color: '#666', fontSize: '14px' }}>
             {events.length === 0 ? 'No events yet — create your first one!' : `You have ${events.length} upcoming event${events.length > 1 ? 's' : ''}`}

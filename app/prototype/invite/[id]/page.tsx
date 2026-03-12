@@ -15,6 +15,7 @@ export default function InvitePage() {
   const [joining, setJoining] = useState(false)
   const [error, setError] = useState('')
   const [alreadyMember, setAlreadyMember] = useState(false)
+  const [profile, setProfile] = useState<any>(null)
 
   const eventTypes: Record<string, string> = {
     'Birthday': '🎂',
@@ -52,6 +53,8 @@ export default function InvitePage() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (authUser) {
         setUser(authUser)
+        const { data: profileData } = await supabase.from('profiles').select('full_name').eq('id', authUser.id).single()
+        if (profileData) setProfile(profileData)
 
         // Check if they're the owner
         if (eventData.owner_id === authUser.id) {
@@ -226,7 +229,7 @@ export default function InvitePage() {
               {joining ? 'Joining...' : 'Join Event →'}
             </button>
             <div style={{ textAlign: 'center', fontSize: '12px', color: '#666' }}>
-              Signed in as {user.email}
+              Signed in as {profile?.full_name || user.email}
             </div>
           </>
         ) : (

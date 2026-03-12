@@ -195,7 +195,7 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
   )
 }
 
-function FlightCard({ flight, isOwn, onEdit, onDelete }: { flight: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void }) {
+function FlightCard({ flight, isOwn, onEdit, onDelete, getName }: { flight: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void, getName?: (e: string) => string }) {
   const fmt = (dt: string) => {
     if (!dt) return null
     try { return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return dt }
@@ -207,7 +207,7 @@ function FlightCard({ flight, isOwn, onEdit, onDelete }: { flight: any, isOwn: b
           <div style={{ fontSize: '20px' }}>✈️</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: '14px' }}>{flight.airline} {flight.flight_number}</div>
-            <div style={{ fontSize: '11px', color: '#666' }}>{flight.user_email}</div>
+            <div style={{ fontSize: '11px', color: '#666' }}>{getName ? getName(flight.user_email) : flight.user_email}</div>
           </div>
         </div>
         {isOwn && (
@@ -235,7 +235,7 @@ function FlightCard({ flight, isOwn, onEdit, onDelete }: { flight: any, isOwn: b
   )
 }
 
-function FlightsTab({ eventId, user, members }: { eventId: string, user: any, members: any[] }) {
+function FlightsTab({ eventId, user, members, getName }: { eventId: string, user: any, members: any[], getName: (e: string) => string }) {
   const [flights, setFlights] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -306,7 +306,7 @@ function FlightsTab({ eventId, user, members }: { eventId: string, user: any, me
       {myFlight ? (
         <div style={{ marginBottom: '24px' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHT</div>
-          <FlightCard flight={myFlight} isOwn onEdit={() => openEdit(myFlight)} onDelete={() => deleteFlight(myFlight.id)} />
+          <FlightCard flight={myFlight} isOwn onEdit={() => openEdit(myFlight)} onDelete={() => deleteFlight(myFlight.id)} getName={getName} />
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
@@ -319,7 +319,7 @@ function FlightsTab({ eventId, user, members }: { eventId: string, user: any, me
       {otherFlights.length > 0 && (
         <div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP FLIGHTS</div>
-          {otherFlights.map(f => <FlightCard key={f.id} flight={f} isOwn={false} />)}
+          {otherFlights.map(f => <FlightCard key={f.id} flight={f} isOwn={false} getName={getName} />)}
         </div>
       )}
       {showModal && (
@@ -386,7 +386,7 @@ function LodgingCard({ lodging, isOwn, onEdit, onDelete }: { lodging: any, isOwn
   )
 }
 
-function LodgingTab({ eventId, user }: { eventId: string, user: any }) {
+function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, getName: (e: string) => string }) {
   const [lodgings, setLodgings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -478,9 +478,9 @@ function LodgingTab({ eventId, user }: { eventId: string, user: any }) {
               <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>🏨 {hotel}</div>
               {people.map((l: any) => (
                 <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid #1A1A1A' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{l.user_email?.[0]?.toUpperCase()}</div>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getName(l.user_email)[0]?.toUpperCase()}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{l.user_email}</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{getName(l.user_email)}</div>
                     {(l.check_in || l.check_out) && <div style={{ fontSize: '11px', color: '#666' }}>{l.check_in && `Check-in: ${l.check_in}`}{l.check_in && l.check_out ? ' · ' : ''}{l.check_out && `Check-out: ${l.check_out}`}</div>}
                   </div>
                 </div>
@@ -513,7 +513,7 @@ function LodgingTab({ eventId, user }: { eventId: string, user: any }) {
   )
 }
 
-function ChatTab({ eventId, user, members, flights, lodgings }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[] }) {
+function ChatTab({ eventId, user, members, flights, lodgings, getName }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string }) {
   const [groups, setGroups] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -587,9 +587,9 @@ function ChatTab({ eventId, user, members, flights, lodgings }: { eventId: strin
               const isMe = msg.user_id === user.id
               return (
                 <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '8px' }}>
-                  {!isMe && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{msg.user_email?.[0]?.toUpperCase()}</div>}
+                  {!isMe && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{getName(msg.user_email)[0]?.toUpperCase()}</div>}
                   <div style={{ maxWidth: '75%' }}>
-                    {!isMe && <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px', fontWeight: 600 }}>{msg.user_email}</div>}
+                    {!isMe && <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px', fontWeight: 600 }}>{getName(msg.user_email)}</div>}
                     <div style={{ background: isMe ? '#FF4D00' : '#1E1E1E', border: isMe ? 'none' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4 }}>{msg.content}</div>
                     <div style={{ fontSize: '10px', color: '#444', marginTop: '3px', textAlign: isMe ? 'right' : 'left' }}>{new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
                   </div>
@@ -665,7 +665,7 @@ function ChatTab({ eventId, user, members, flights, lodgings }: { eventId: strin
   )
 }
 
-function PhotosTab({ eventId, user, event, members }: { eventId: string, user: any, event: any, members: any[] }) {
+function PhotosTab({ eventId, user, event, members, getName }: { eventId: string, user: any, event: any, members: any[], getName: (e: string) => string }) {
   const [photos, setPhotos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
@@ -692,11 +692,11 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
 
   // Build member list for @mentions (email username + full email)
-  const memberList = members.map(m => ({ email: m.user_email, name: m.user_email.split('@')[0] }))
+  const memberList = members.map(m => ({ email: m.user_email, name: getName(m.user_email) }))
   if (event?.owner_id) {
     const ownerEmail = user?.email
     if (ownerEmail && !memberList.some(m => m.email === ownerEmail)) {
-      memberList.unshift({ email: ownerEmail, name: ownerEmail.split('@')[0] })
+      memberList.unshift({ email: ownerEmail, name: getName(ownerEmail) })
     }
   }
 
@@ -919,7 +919,7 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
       <div style={{ paddingLeft: indent ? '20px' : '0', marginBottom: '8px' }}>
         <div style={{ background: '#0A0A0A', border: '1px solid #1A1A1A', borderRadius: '10px', padding: '10px 12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00' }}>{c.user_email.split('@')[0]}</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00' }}>{getName(c.user_email)}</span>
             <span style={{ fontSize: '10px', color: '#444' }}>{new Date(c.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
           </div>
           <div style={{ fontSize: '13px', color: '#ddd', marginBottom: '6px' }}>{renderCommentText(c.content)}</div>
@@ -1062,7 +1062,7 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
             {/* Caption & attribution */}
             {currentPhoto.caption && <div style={{ fontSize: '15px', color: '#F0F0F0', fontWeight: 600, marginBottom: '4px', textAlign: 'center' }}>{currentPhoto.caption}</div>}
             <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', marginBottom: '12px' }}>
-              By {currentPhoto.user_email.split('@')[0]} · {new Date(currentPhoto.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              By {getName(currentPhoto.user_email)} · {new Date(currentPhoto.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </div>
 
             {/* Emoji reaction bar */}
@@ -1104,7 +1104,7 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
                 {/* Reply indicator */}
                 {replyTo && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,77,0,0.1)', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', fontSize: '12px', color: '#FF4D00', fontWeight: 600 }}>
-                    <span>Replying to @{replyTo.user_email.split('@')[0]}</span>
+                    <span>Replying to @{getName(replyTo.user_email)}</span>
                     <span onClick={() => setReplyTo(null)} style={{ cursor: 'pointer', fontSize: '14px' }}>✕</span>
                   </div>
                 )}
@@ -1165,6 +1165,15 @@ function EventPage() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteRole, setInviteRole] = useState('member')
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+
+  function getName(emailOrId: string | undefined | null): string {
+    if (!emailOrId) return 'Unknown'
+    return profileMap[emailOrId] || emailOrId.split('@')[0]
+  }
+  function getInitial(emailOrId: string | undefined | null): string {
+    return getName(emailOrId)[0]?.toUpperCase() || 'U'
+  }
 
   useEffect(() => {
     async function load() {
@@ -1177,14 +1186,39 @@ function EventPage() {
       setEvent(eventData)
       const { data: membersData } = await supabase.from('event_members').select('*').eq('event_id', eventId)
       setMembers(membersData || [])
+      let flightsData: any[] = []
+      let lodgingsData: any[] = []
       if (eventData.requires_flights) {
-        const { data: flightsData } = await supabase.from('member_flights').select('*').eq('event_id', eventId)
-        setFlights(flightsData || [])
+        const { data } = await supabase.from('member_flights').select('*').eq('event_id', eventId)
+        flightsData = data || []
+        setFlights(flightsData)
       }
       if (eventData.requires_lodging) {
-        const { data: lodgingsData } = await supabase.from('member_lodging').select('*').eq('event_id', eventId)
-        setLodgings(lodgingsData || [])
+        const { data } = await supabase.from('member_lodging').select('*').eq('event_id', eventId)
+        lodgingsData = data || []
+        setLodgings(lodgingsData)
       }
+      // Build profile lookup map — collect all known user_ids
+      const userIds = new Set<string>()
+      const emailToId: Record<string, string> = {}
+      userIds.add(user.id)
+      if (user.email) emailToId[user.email] = user.id
+      if (eventData.owner_id) userIds.add(eventData.owner_id)
+      flightsData.forEach((f: any) => { if (f.user_id) { userIds.add(f.user_id); if (f.user_email) emailToId[f.user_email] = f.user_id } })
+      lodgingsData.forEach((l: any) => { if (l.user_id) { userIds.add(l.user_id); if (l.user_email) emailToId[l.user_email] = l.user_id } })
+      // Also check photos and chat messages for user_id/email pairs
+      const { data: photoUsers } = await supabase.from('event_photos').select('user_id, user_email').eq('event_id', eventId)
+      if (photoUsers) photoUsers.forEach((p: any) => { if (p.user_id) { userIds.add(p.user_id); if (p.user_email) emailToId[p.user_email] = p.user_id } })
+      const { data: chatUsers } = await supabase.from('chat_messages').select('user_id, user_email').eq('event_id', eventId)
+      if (chatUsers) chatUsers.forEach((m: any) => { if (m.user_id) { userIds.add(m.user_id); if (m.user_email) emailToId[m.user_email] = m.user_id } })
+      // Bulk fetch profiles
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', Array.from(userIds))
+      const map: Record<string, string> = {}
+      if (profiles) profiles.forEach((p: any) => { if (p.full_name) map[p.id] = p.full_name })
+      // Cross-reference: map emails to names via emailToId
+      Object.entries(emailToId).forEach(([email, id]) => { if (map[id]) map[email] = map[id] })
+      setProfileMap(map)
+
       setLoading(false)
     }
     load()
@@ -1307,9 +1341,9 @@ function EventPage() {
                 {canInvite && <button onClick={() => setShowInviteModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Invite</button>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{user?.email?.[0]?.toUpperCase()}</div>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{user?.email}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(user?.email)}</div>
                   <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
                 </div>
               </div>
@@ -1317,7 +1351,7 @@ function EventPage() {
                 const canRemoveThis = canRemove && !(isCohost && !isHost && member.role_level === 'cohost')
                 return confirmRemove === member.id ? (
                   <div key={i} style={{ padding: '14px', background: '#1A1010', borderRadius: '10px', marginBottom: '8px', border: '1px solid #FF4D00' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0', marginBottom: '12px' }}>Remove {member.user_email}?</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0', marginBottom: '12px' }}>Remove {getName(member.user_email)}?</div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => removeMember(member)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>Remove</button>
                       <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, background: '#2A2A2A', border: 'none', borderRadius: '8px', padding: '10px', color: '#F0F0F0', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
@@ -1325,9 +1359,9 @@ function EventPage() {
                   </div>
                 ) : (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{member.user_email?.[0]?.toUpperCase()}</div>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{member.user_email}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(member.user_email)}</div>
                       <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited</div>
                     </div>
                     {canRemoveThis && (
@@ -1352,9 +1386,9 @@ function EventPage() {
         )}
 
         {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
-        {activeTab === 'flights' && event?.requires_flights && <FlightsTab eventId={eventId!} user={user} members={members} />}
-        {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} />}
-        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} />}
+        {activeTab === 'flights' && event?.requires_flights && <FlightsTab eventId={eventId!} user={user} members={members} getName={getName} />}
+        {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} getName={getName} />}
+        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} />}
 
         {activeTab === 'vote' && (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
@@ -1364,7 +1398,7 @@ function EventPage() {
           </div>
         )}
 
-        {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} />}
+        {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} getName={getName} />}
       </div>
 
       {showInviteModal && (

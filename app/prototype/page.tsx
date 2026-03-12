@@ -9,6 +9,7 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -17,8 +18,11 @@ export default function Login() {
     setError('')
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
+        if (data.user && fullName.trim()) {
+          await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName.trim() })
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -62,6 +66,8 @@ export default function Login() {
           <div style={{ marginBottom: '14px' }}>
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Full Name</label>
             <input
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
               placeholder="Jake Brooks"
               style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
             />
