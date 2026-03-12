@@ -523,6 +523,12 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [replyTo, setReplyTo] = useState<any>(null)
+  const [showReactions, setShowReactions] = useState<string | null>(null)
+  const [reactions, setReactions] = useState<Record<string, any[]>>({})
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLInputElement>(null)
+  const CHAT_EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '👎']
 
   useEffect(() => {
     async function load() {
@@ -533,6 +539,11 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
     load()
   }, [eventId])
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
   useEffect(() => {
     if (!activeGroup) return
     async function loadMessages() {
@@ -540,9 +551,22 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
       setMessages(data || [])
     }
     loadMessages()
+    // Load reactions
+    async function loadReactions() {
+      const { data } = await supabase.from('chat_reactions').select('*').eq('group_id', activeGroup.id)
+      if (data) {
+        const grouped: Record<string, any[]> = {}
+        data.forEach((r: any) => {
+          if (!grouped[r.message_id]) grouped[r.message_id] = []
+          grouped[r.message_id].push(r)
+        })
+        setReactions(grouped)
+      }
+    }
+    loadReactions()
     const sub = supabase.channel(`chat:${activeGroup.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `group_id=eq.${activeGroup.id}` }, payload => {
-        setMessages(prev => [...prev, payload.new])
+        setMessages(prev => prev.some(m => m.id === (payload.new as any).id) ? prev : [...prev, payload.new])
       })
       .subscribe()
     return () => { supabase.removeChannel(sub) }
@@ -559,8 +583,33 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
   async function sendMessage() {
     if (!newMessage.trim() || !activeGroup) return
     setSending(true)
-    await supabase.from('chat_messages').insert({ group_id: activeGroup.id, event_id: eventId, user_id: user.id, user_email: user.email, content: newMessage.trim() })
-    setNewMessage(''); setSending(false)
+    const payload: any = { group_id: activeGroup.id, event_id: eventId, user_id: user.id, user_email: user.email, content: newMessage.trim() }
+    if (replyTo) payload.reply_to = replyTo.id
+    const { data, error: sendErr } = await supabase.from('chat_messages').insert(payload).select().single()
+    if (sendErr) {
+      // If reply_to column doesn't exist, retry without it
+      if (sendErr.message?.includes('reply_to')) {
+        const { reply_to, ...fallback } = payload
+        const { data: d2 } = await supabase.from('chat_messages').insert(fallback).select().single()
+        if (d2) setMessages(prev => prev.some(m => m.id === d2.id) ? prev : [...prev, { ...d2, reply_to: replyTo?.id }])
+      }
+    } else if (data) {
+      setMessages(prev => prev.some(m => m.id === data.id) ? prev : [...prev, data])
+    }
+    setNewMessage(''); setReplyTo(null); setSending(false)
+  }
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    const msgReactions = reactions[messageId] || []
+    const existing = msgReactions.find(r => r.user_id === user.id && r.emoji === emoji)
+    if (existing) {
+      await supabase.from('chat_reactions').delete().eq('id', existing.id)
+      setReactions(prev => ({ ...prev, [messageId]: (prev[messageId] || []).filter(r => r.id !== existing.id) }))
+    } else {
+      const { data } = await supabase.from('chat_reactions').insert({ message_id: messageId, group_id: activeGroup.id, user_id: user.id, user_email: user.email, emoji }).select().single()
+      if (data) setReactions(prev => ({ ...prev, [messageId]: [...(prev[messageId] || []), data] }))
+    }
+    setShowReactions(null)
   }
 
   const suggestions: string[] = []
@@ -575,7 +624,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 280px)', minHeight: '400px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <button onClick={() => setActiveGroup(null)} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
+          <button onClick={() => { setActiveGroup(null); setReplyTo(null); setShowReactions(null) }} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
           <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeGroup.name}</div>
           {activeGroup.auto_created && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>AUTO</div>}
         </div>
@@ -585,21 +634,64 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
           ) : (
             messages.map((msg: any) => {
               const isMe = msg.user_id === user.id
+              const msgReactions = reactions[msg.id] || []
+              const reactionCounts = CHAT_EMOJIS.map(emoji => {
+                const list = msgReactions.filter(r => r.emoji === emoji)
+                return list.length > 0 ? { emoji, count: list.length, userReacted: list.some(r => r.user_id === user.id) } : null
+              }).filter(Boolean) as { emoji: string, count: number, userReacted: boolean }[]
+              const repliedMsg = msg.reply_to ? messages.find(m => m.id === msg.reply_to) : null
+
               return (
                 <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '8px' }}>
                   {!isMe && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{getName(msg.user_email)[0]?.toUpperCase()}</div>}
-                  <div style={{ maxWidth: '75%' }}>
+                  <div style={{ maxWidth: '75%', position: 'relative' }}>
                     {!isMe && <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px', fontWeight: 600 }}>{getName(msg.user_email)}</div>}
-                    <div style={{ background: isMe ? '#FF4D00' : '#1E1E1E', border: isMe ? 'none' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4 }}>{msg.content}</div>
+                    {/* Reply preview */}
+                    {repliedMsg && (
+                      <div style={{ background: 'rgba(255,255,255,0.05)', borderLeft: '2px solid #FF4D00', borderRadius: '4px', padding: '4px 8px', marginBottom: '4px', fontSize: '11px', color: '#888' }}>
+                        <span style={{ fontWeight: 700, color: '#FF4D00' }}>{getName(repliedMsg.user_email)}</span>: {repliedMsg.content?.substring(0, 60)}{repliedMsg.content?.length > 60 ? '...' : ''}
+                      </div>
+                    )}
+                    {/* Message bubble */}
+                    <div
+                      onClick={() => setShowReactions(showReactions === msg.id ? null : msg.id)}
+                      style={{ background: isMe ? '#FF4D00' : '#1E1E1E', border: isMe ? 'none' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4, cursor: 'pointer' }}
+                    >{msg.content}</div>
+                    {/* Reaction badges */}
+                    {reactionCounts.length > 0 && (
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+                        {reactionCounts.map(r => (
+                          <span key={r.emoji} onClick={() => toggleReaction(msg.id, r.emoji)} style={{ fontSize: '11px', background: r.userReacted ? 'rgba(255,77,0,0.15)' : 'rgba(255,255,255,0.06)', border: r.userReacted ? '1px solid #FF4D00' : '1px solid #2A2A2A', borderRadius: '10px', padding: '2px 6px', cursor: 'pointer' }}>{r.emoji}{r.count > 1 ? r.count : ''}</span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Action row: react + reply */}
+                    {showReactions === msg.id && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '20px', padding: '4px 8px', width: 'fit-content' }}>
+                        {CHAT_EMOJIS.map(emoji => (
+                          <button key={emoji} onClick={(e) => { e.stopPropagation(); toggleReaction(msg.id, emoji) }} style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', padding: '2px 4px' }}>{emoji}</button>
+                        ))}
+                        <div style={{ width: '1px', height: '20px', background: '#2A2A2A', margin: '0 2px' }} />
+                        <button onClick={(e) => { e.stopPropagation(); setReplyTo(msg); setShowReactions(null); chatInputRef.current?.focus() }} style={{ background: 'none', border: 'none', fontSize: '12px', cursor: 'pointer', color: '#FF4D00', fontWeight: 700, padding: '2px 6px' }}>Reply</button>
+                      </div>
+                    )}
                     <div style={{ fontSize: '10px', color: '#444', marginTop: '3px', textAlign: isMe ? 'right' : 'left' }}>{new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
                   </div>
                 </div>
               )
             })
           )}
+          <div ref={messagesEndRef} />
         </div>
+        {/* Reply banner */}
+        {replyTo && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,77,0,0.1)', borderRadius: '8px', padding: '6px 10px', marginBottom: '8px', fontSize: '12px', color: '#FF4D00', fontWeight: 600 }}>
+            <span>Replying to {getName(replyTo.user_email)}: {replyTo.content?.substring(0, 40)}{replyTo.content?.length > 40 ? '...' : ''}</span>
+            <span onClick={() => setReplyTo(null)} style={{ cursor: 'pointer', fontSize: '14px' }}>✕</span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: '8px' }}>
-          <input value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()} placeholder="Message..." style={{ flex: 1, background: '#161616', border: '1px solid #2A2A2A', borderRadius: '24px', padding: '12px 16px', fontSize: '14px', color: '#fff', outline: 'none' }} />
+          <input ref={chatInputRef} value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }} placeholder={replyTo ? 'Reply...' : 'Message...'} style={{ flex: 1, background: '#161616', border: '1px solid #2A2A2A', borderRadius: '24px', padding: '12px 16px', fontSize: '14px', color: '#fff', outline: 'none' }} />
           <button onClick={sendMessage} disabled={sending || !newMessage.trim()} style={{ background: newMessage.trim() ? '#FF4D00' : '#333', border: 'none', borderRadius: '50%', width: '44px', height: '44px', fontSize: '18px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>↑</button>
         </div>
       </div>
@@ -661,6 +753,112 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function VoteTab({ eventId, user, members }: { eventId: string, user: any, members: any[] }) {
+  const [items, setItems] = useState<any[]>([])
+  const [votes, setVotes] = useState<Record<string, any[]>>({})
+  const [loading, setLoading] = useState(true)
+  const memberCount = members.length + 1 // +1 for host
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('itinerary_items').select('*').eq('event_id', eventId).eq('is_votable', true).order('date', { ascending: true })
+      setItems(data || [])
+      if (data && data.length > 0) {
+        const itemIds = data.map((i: any) => i.id)
+        const { data: votesData } = await supabase.from('item_votes').select('*').in('item_id', itemIds)
+        if (votesData) {
+          const grouped: Record<string, any[]> = {}
+          votesData.forEach((v: any) => {
+            if (!grouped[v.item_id]) grouped[v.item_id] = []
+            grouped[v.item_id].push(v)
+          })
+          setVotes(grouped)
+        }
+      }
+      setLoading(false)
+    }
+    load()
+  }, [eventId])
+
+  async function castVote(itemId: string, vote: 'up' | 'down') {
+    const itemVotes = votes[itemId] || []
+    const existing = itemVotes.find(v => v.user_id === user.id)
+    if (existing) {
+      if (existing.vote === vote) {
+        // Remove vote
+        await supabase.from('item_votes').delete().eq('id', existing.id)
+        setVotes(prev => ({ ...prev, [itemId]: (prev[itemId] || []).filter(v => v.id !== existing.id) }))
+      } else {
+        // Change vote
+        const { data } = await supabase.from('item_votes').update({ vote }).eq('id', existing.id).select().single()
+        if (data) setVotes(prev => ({ ...prev, [itemId]: (prev[itemId] || []).map(v => v.id === existing.id ? data : v) }))
+      }
+    } else {
+      // New vote
+      const { data, error: voteErr } = await supabase.from('item_votes').insert({ item_id: itemId, event_id: eventId, user_id: user.id, user_email: user.email, vote }).select().single()
+      if (voteErr) console.error('Vote error:', voteErr.message)
+      if (data) setVotes(prev => ({ ...prev, [itemId]: [...(prev[itemId] || []), data] }))
+    }
+  }
+
+  const getCategoryEmoji = (cat: string) => ({ activity: '🎯', food: '🍽', transport: '🚗', lodging: '🏨', flight: '✈️', other: '✨' } as any)[cat] || '✨'
+
+  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  if (items.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
+        <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗳</div>
+        <div style={{ fontWeight: 700, marginBottom: '8px' }}>No items up for vote</div>
+        <div style={{ fontSize: '13px' }}>Mark itinerary items as &quot;Open to Group Vote&quot; to see them here</div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '16px' }}>{items.length} {items.length === 1 ? 'Item' : 'Items'} Up For Vote</div>
+      {items.map(item => {
+        const itemVotes = votes[item.id] || []
+        const ups = itemVotes.filter(v => v.vote === 'up').length
+        const downs = itemVotes.filter(v => v.vote === 'down').length
+        const totalVotes = itemVotes.length
+        const pct = memberCount > 0 ? Math.round((ups / memberCount) * 100) : 0
+        const myVote = itemVotes.find(v => v.user_id === user.id)?.vote
+
+        return (
+          <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', marginBottom: '12px', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 16px 12px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>
+                {getCategoryEmoji(item.category)} {item.category}
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{item.title}</div>
+              <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {item.date && <span>📅 {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
+                {item.location && <span>📍 {item.location}</span>}
+              </div>
+              {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>{item.description}</div>}
+            </div>
+            <div style={{ height: '3px', background: '#2A2A2A' }}>
+              <div style={{ height: '100%', background: 'linear-gradient(90deg, #FF4D00, #FFD600)', width: `${pct}%`, transition: 'width 0.3s' }} />
+            </div>
+            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '12px', color: '#666', fontFamily: 'monospace' }}>
+                {ups} 👍 · {downs} 👎 · {totalVotes}/{memberCount} voted
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
+                <button onClick={() => castVote(item.id, 'up')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'up' ? '#00E676' : 'rgba(0,230,118,0.15)', transition: 'background 0.2s' }}>👍</button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -1421,13 +1619,7 @@ function EventPage() {
         {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} getName={getName} />}
         {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} />}
 
-        {activeTab === 'vote' && (
-          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗳</div>
-            <div style={{ fontWeight: 700, marginBottom: '8px' }}>Voting coming soon</div>
-            <div style={{ fontSize: '13px' }}>Let your crew vote on activities</div>
-          </div>
-        )}
+        {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} />}
 
         {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} getName={getName} />}
       </div>
