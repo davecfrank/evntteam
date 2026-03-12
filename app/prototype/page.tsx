@@ -23,7 +23,14 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
-      router.push('/prototype/dashboard')
+      // Check if user came from an invite link
+      const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('evnt_invite_redirect') : null
+      if (redirect) {
+        sessionStorage.removeItem('evnt_invite_redirect')
+        router.push(redirect)
+      } else {
+        router.push('/prototype/dashboard')
+      }
     } catch (err: any) {
       setError(err.message)
       setLoading(false)
