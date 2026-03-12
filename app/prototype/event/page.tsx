@@ -1,6 +1,6 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { supabase } from '../../../lib/supabase'
 
 const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
@@ -673,6 +673,7 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
   const [caption, setCaption] = useState('')
   const [lightbox, setLightbox] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isHost = event?.owner_id === user?.id
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
@@ -692,9 +693,11 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
+    if (!files.length) return
     setSelectedFiles(files)
     const urls = files.map(f => URL.createObjectURL(f))
     setPreviews(urls)
+    setShowUpload(true)
   }
 
   async function uploadPhotos() {
@@ -769,7 +772,8 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
   return (
     <div>
       {/* Upload Button */}
-      <button onClick={() => setShowUpload(true)} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '20px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
+      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
+      <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '20px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
         📸 Upload Photos
       </button>
 
@@ -795,14 +799,9 @@ function PhotosTab({ eventId, user, event, members }: { eventId: string, user: a
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
           <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box', maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
-            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>📸 Upload Photos</h2>
-
-            {/* File picker */}
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <label style={{ display: 'inline-block', background: selectedFiles.length ? 'rgba(0,230,118,0.15)' : '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', cursor: 'pointer', fontSize: '14px', fontWeight: 700, color: selectedFiles.length ? '#00E676' : '#fff', boxShadow: selectedFiles.length ? 'none' : '0 3px 10px rgba(255, 77, 0, 0.4)' }}>
-                {selectedFiles.length ? `✅ ${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected` : 'Select Photos'}
-                <input type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
-              </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: 800 }}>📸 {selectedFiles.length} Photo{selectedFiles.length !== 1 ? 's' : ''}</h2>
+              <span onClick={() => fileInputRef.current?.click()} style={{ fontSize: '13px', color: '#FF4D00', fontWeight: 600, cursor: 'pointer' }}>Change</span>
             </div>
 
             {/* Previews */}
