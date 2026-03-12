@@ -1257,27 +1257,37 @@ function EventPage() {
 
   async function inviteByEmail() {
     if (!inviteEmail.trim()) return
+    const email = inviteEmail.trim().toLowerCase()
+
+    // Check if already a member
+    if (members.some(m => m.user_email?.toLowerCase() === email) || email === user?.email?.toLowerCase()) {
+      setInviteEmail('')
+      return
+    }
+
     setInviting(true)
-  
-    await supabase.from('event_members').insert({
+
+    const { data: inserted } = await supabase.from('event_members').insert({
       event_id: eventId,
-      user_email: inviteEmail.trim(),
+      user_email: email,
       role: inviteRole,
       role_level: inviteRole,
-    })
-  
+    }).select().single()
+
     await fetch('/api/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: inviteEmail.trim(),
+        email,
         eventName: event?.name,
         eventId,
         inviterEmail: user?.email,
       }),
     })
-  
-    setMembers(prev => [...prev, { user_email: inviteEmail.trim(), role: inviteRole }])
+
+    if (inserted) {
+      setMembers(prev => [...prev, inserted])
+    }
     setInviteEmail('')
     setInviteSuccess(true)
     setTimeout(() => setInviteSuccess(false), 3000)
@@ -1286,8 +1296,12 @@ function EventPage() {
 
 
   async function removeMember(member: any) {
-    await supabase.from('event_members').delete().eq('id', member.id)
-    setMembers(prev => prev.filter(m => m.id !== member.id))
+    if (member.id) {
+      await supabase.from('event_members').delete().eq('id', member.id)
+    } else {
+      await supabase.from('event_members').delete().eq('event_id', eventId).eq('user_email', member.user_email)
+    }
+    setMembers(prev => prev.filter(m => m.user_email !== member.user_email))
     setConfirmRemove(null)
   }
 
