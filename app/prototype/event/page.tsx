@@ -898,18 +898,23 @@ function PhotosTab({ eventId, user, event, members, getName }: { eventId: string
 
   const filteredMembers = mentionQuery !== null ? memberList.filter(m => m.name.toLowerCase().includes(mentionQuery) || m.email.toLowerCase().includes(mentionQuery)) : []
 
-  // Render @mentions highlighted in comment text (supports multi-word names like @Dave Frank)
+  // Render @mentions highlighted in comment text (supports full names and legacy email prefixes)
   function renderCommentText(text: string) {
     if (!memberList.length) return <>{text}</>
-    // Build regex matching known member names (longest first to avoid partial matches)
-    const sortedNames = memberList.map(m => m.name).sort((a, b) => b.length - a.length)
-    const escaped = sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    // Build list of all matchable tokens: full names + email prefixes (longest first)
+    const tokens = new Set<string>()
+    memberList.forEach(m => {
+      tokens.add(m.name)
+      if (m.email) tokens.add(m.email.split('@')[0])
+    })
+    const sorted = Array.from(tokens).sort((a, b) => b.length - a.length)
+    const escaped = sorted.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     const regex = new RegExp(`(@(?:${escaped.join('|')}|\\w+))`, 'g')
     const parts = text.split(regex)
     return <>{parts.map((part, i) => {
       if (part.startsWith('@')) {
         const name = part.slice(1)
-        const isMember = memberList.some(m => m.name === name)
+        const isMember = memberList.some(m => m.name === name || m.email?.split('@')[0] === name)
         if (isMember) return <span key={i} style={{ color: '#FF4D00', fontWeight: 700 }}>{part}</span>
       }
       return <span key={i}>{part}</span>
