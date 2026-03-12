@@ -98,7 +98,8 @@ export default function Login() {
           style={{
             width: '100%', background: loading ? '#333' : '#FF4D00', border: 'none',
             borderRadius: '12px', padding: '16px', fontSize: '16px',
-            fontWeight: 700, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '16px'
+            fontWeight: 700, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '16px',
+            boxShadow: loading ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)'
           }}>
           {loading ? 'Loading...' : isSignUp ? 'Create Account →' : 'Sign In →'}
         </button>

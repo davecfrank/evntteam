@@ -124,7 +124,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div onClick={() => setShowModal(true)} style={{ background: '#FF4D00', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '28px' }}>
+        <div onClick={() => setShowModal(true)} style={{ background: '#FF4D00', borderRadius: '14px', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: '28px', boxShadow: '0 4px 16px rgba(255, 77, 0, 0.45)' }}>
           <div style={{ fontWeight: 700, fontSize: '16px' }}>Create New Event</div>
           <div style={{ fontSize: '24px' }}>+</div>
         </div>
@@ -265,7 +265,7 @@ export default function Dashboard() {
   </div>
 </div>
 
-            <button onClick={createEvent} disabled={saving || !name.trim()} style={{ width: '100%', background: saving || !name.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !name.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px' }}>
+            <button onClick={createEvent} disabled={saving || !name.trim()} style={{ width: '100%', background: saving || !name.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !name.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !name.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
               {saving ? 'Creating...' : 'Create Event →'}
             </button>
             <button onClick={() => setShowModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>

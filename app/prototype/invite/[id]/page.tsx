@@ -137,7 +137,7 @@ export default function InvitePage() {
           </p>
           <button
             onClick={() => router.push('/prototype')}
-            style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}
+            style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}
           >
             Go to Evnt.Team →
           </button>
@@ -211,7 +211,7 @@ export default function InvitePage() {
             </div>
             <button
               onClick={goToEvent}
-              style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}
+              style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}
             >
               Open Event →
             </button>
@@ -221,7 +221,7 @@ export default function InvitePage() {
             <button
               onClick={joinEvent}
               disabled={joining}
-              style={{ width: '100%', background: joining ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: joining ? 'not-allowed' : 'pointer', marginBottom: '12px' }}
+              style={{ width: '100%', background: joining ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: joining ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: joining ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}
             >
               {joining ? 'Joining...' : 'Join Event →'}
             </button>
@@ -238,7 +238,7 @@ export default function InvitePage() {
                 }
                 router.push('/prototype')
               }}
-              style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '12px' }}
+              style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '12px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}
             >
               Sign Up to Join →
             </button>
