@@ -823,17 +823,17 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
     }))
   }
 
-  const userOwed = bills.reduce((sum, bill) => {
+  // Calculate per-person balances: who does the current user owe money to?
+  const owedByPerson: Record<string, number> = {}
+  bills.forEach(bill => {
     const billSplits = splits[bill.id] || []
     const mySplit = billSplits.find(s => s.user_email === user?.email && !s.is_paid)
-    return sum + (mySplit ? parseFloat(mySplit.amount) : 0)
-  }, 0)
-
-  const userPaid = bills.reduce((sum, bill) => {
-    const billSplits = splits[bill.id] || []
-    const mySplit = billSplits.find(s => s.user_email === user?.email && s.is_paid)
-    return sum + (mySplit ? parseFloat(mySplit.amount) : 0)
-  }, 0)
+    if (mySplit && bill.paid_by_email !== user?.email) {
+      const payer = bill.paid_by_email
+      owedByPerson[payer] = (owedByPerson[payer] || 0) + parseFloat(mySplit.amount)
+    }
+  })
+  const totalOwed = Object.values(owedByPerson).reduce((a, b) => a + b, 0)
 
   const modalOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 200 }
   const modalCard: React.CSSProperties = { background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '480px' : '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }
@@ -844,20 +844,25 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
     <div style={{ padding: '0 20px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
       {/* Balance Summary */}
       <div style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Your Balance</div>
-            {userOwed > 0 ? (
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#FF4D00' }}>You owe ${userOwed.toFixed(2)}</div>
-            ) : (
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#00E676' }}>You're settled up!</div>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Your Balance</div>
+        {totalOwed > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {Object.entries(owedByPerson).map(([email, amount]) => (
+              <div key={email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#0A0A0A', borderRadius: '10px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>You owe {getName(email)}</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#FF4D00' }}>${amount.toFixed(2)}</div>
+              </div>
+            ))}
+            {Object.keys(owedByPerson).length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #2A2A2A' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#999' }}>Total</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#FF4D00' }}>${totalOwed.toFixed(2)}</div>
+              </div>
             )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>Paid</div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#00E676' }}>${userPaid.toFixed(2)}</div>
-          </div>
-        </div>
+        ) : (
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#00E676' }}>You're settled up!</div>
+        )}
       </div>
 
       {/* Add Bill Button */}
@@ -877,70 +882,43 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {bills.map(bill => {
             const billSplits = splits[bill.id] || []
-            const paidCount = billSplits.filter(s => s.is_paid).length
-            const totalCount = billSplits.length
-            const isExpanded = expandedBill === bill.id
+            const mySplit = billSplits.find(s => s.user_email === user?.email)
             const isCreator = bill.created_by === user?.id
-            const progress = totalCount > 0 ? paidCount / totalCount : 0
+            const iPayedThis = bill.paid_by_email === user?.email
 
             return (
-              <div key={bill.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', overflow: 'hidden' }}>
-                {/* Collapsed Header */}
-                <div onClick={() => setExpandedBill(isExpanded ? null : bill.id)} style={{ padding: '16px 20px', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '16px', fontWeight: 700 }}>🧾 {bill.title}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '13px', color: '#999' }}>Paid by {getName(bill.paid_by_email)}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{new Date(bill.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                  </div>
-                  {/* Progress bar */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ flex: 1, height: '6px', background: '#0A0A0A', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progress * 100}%`, height: '100%', background: progress === 1 ? '#00E676' : '#FF4D00', borderRadius: '3px', transition: 'width 0.3s' }} />
-                    </div>
-                    <div style={{ fontSize: '12px', color: progress === 1 ? '#00E676' : '#999', fontWeight: 600, whiteSpace: 'nowrap' }}>{paidCount}/{totalCount} paid</div>
-                  </div>
+              <div key={bill.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '16px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>🧾 {bill.title}</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>{new Date(bill.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                 </div>
-
-                {/* Expanded Content */}
-                {isExpanded && (
-                  <div style={{ borderTop: '1px solid #2A2A2A', padding: '16px 20px' }}>
-                    {bill.notes && <div style={{ fontSize: '13px', color: '#999', marginBottom: '14px', fontStyle: 'italic' }}>{bill.notes}</div>}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {billSplits.map(split => {
-                        const canMarkPaid = split.user_email === user?.email || isCreator
-                        return (
-                          <div key={split.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#0A0A0A', borderRadius: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ fontSize: '16px' }}>{split.is_paid ? '✅' : '⬜'}</span>
-                              <div>
-                                <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(split.user_email)}</div>
-                                <div style={{ fontSize: '13px', fontWeight: 700, color: split.is_paid ? '#00E676' : '#FF4D00' }}>${parseFloat(split.amount).toFixed(2)}</div>
-                              </div>
-                            </div>
-                            {split.is_paid ? (
-                              canMarkPaid ? (
-                                <button onClick={() => markUnpaid(split.id, bill.id)} style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#00E676', cursor: 'pointer' }}>Paid ✓</button>
-                              ) : (
-                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#00E676' }}>Paid ✓</span>
-                              )
-                            ) : (
-                              canMarkPaid && (
-                                <button onClick={() => markPaid(split.id, bill.id)} style={{ background: 'rgba(255,77,0,0.1)', border: '1px solid #FF4D00', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>Mark Paid</button>
-                              )
-                            )}
-                          </div>
-                        )
-                      })}
+                <div style={{ fontSize: '13px', color: '#999', marginBottom: '12px' }}>
+                  {iPayedThis ? 'You paid' : `Paid by ${getName(bill.paid_by_email)}`} · ${parseFloat(bill.total_amount).toFixed(2)} total
+                </div>
+                {bill.notes && <div style={{ fontSize: '13px', color: '#666', marginBottom: '12px', fontStyle: 'italic' }}>{bill.notes}</div>}
+                {/* Your split */}
+                {mySplit && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#0A0A0A', borderRadius: '10px', marginBottom: iPayedThis ? '12px' : '0' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', color: '#999', marginBottom: '2px' }}>{iPayedThis ? 'Your share' : `You owe ${getName(bill.paid_by_email)}`}</div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: mySplit.is_paid || iPayedThis ? '#00E676' : '#FF4D00' }}>${parseFloat(mySplit.amount).toFixed(2)}</div>
                     </div>
-                    {isCreator && (
-                      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-                        <button onClick={() => openEditModal(bill)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>Edit</button>
-                        <button onClick={() => deleteBill(bill.id)} style={{ flex: 1, background: 'rgba(255,0,0,0.1)', border: '1px solid #FF3333', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#FF3333', cursor: 'pointer' }}>Delete</button>
-                      </div>
+                    {!iPayedThis && (
+                      mySplit.is_paid ? (
+                        <button onClick={() => markUnpaid(mySplit.id, bill.id)} style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, color: '#00E676', cursor: 'pointer' }}>Paid ✓</button>
+                      ) : (
+                        <button onClick={() => markPaid(mySplit.id, bill.id)} style={{ background: 'rgba(255,77,0,0.1)', border: '1px solid #FF4D00', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>Mark Paid</button>
+                      )
                     )}
+                  </div>
+                )}
+                {!mySplit && !iPayedThis && (
+                  <div style={{ padding: '12px 14px', background: '#0A0A0A', borderRadius: '10px', fontSize: '13px', color: '#666', marginBottom: iPayedThis ? '12px' : '0' }}>You're not part of this split</div>
+                )}
+                {iPayedThis && (
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => openEditModal(bill)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => deleteBill(bill.id)} style={{ flex: 1, background: 'rgba(255,0,0,0.1)', border: '1px solid #FF3333', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#FF3333', cursor: 'pointer' }}>Delete</button>
                   </div>
                 )}
               </div>
