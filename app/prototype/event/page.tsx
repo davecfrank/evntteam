@@ -678,6 +678,345 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
   )
 }
 
+
+function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { eventId: string, user: any, members: any[], event: any, getName: (e: string) => string, isDesktop: boolean }) {
+  const [bills, setBills] = useState<any[]>([])
+  const [splits, setSplits] = useState<Record<string, any[]>>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editBill, setEditBill] = useState<any>(null)
+  const [expandedBill, setExpandedBill] = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [totalAmount, setTotalAmount] = useState('')
+  const [paidByEmail, setPaidByEmail] = useState(user?.email || '')
+  const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal')
+  const [notes, setNotes] = useState('')
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+
+  const allParticipants = [
+    ...(event?.created_by_email ? [{ email: event.created_by_email }] : []),
+    ...members.filter(m => m.email !== event?.created_by_email)
+  ]
+
+  useEffect(() => {
+    loadBills()
+  }, [eventId])
+
+  async function loadBills() {
+    setLoading(true)
+    const { data: billsData } = await supabase.from('bills').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
+    if (billsData && billsData.length > 0) {
+      setBills(billsData)
+      const billIds = billsData.map(b => b.id)
+      const { data: splitsData } = await supabase.from('bill_splits').select('*').in('bill_id', billIds)
+      if (splitsData) {
+        const grouped: Record<string, any[]> = {}
+        splitsData.forEach(s => {
+          if (!grouped[s.bill_id]) grouped[s.bill_id] = []
+          grouped[s.bill_id].push(s)
+        })
+        setSplits(grouped)
+      }
+    } else {
+      setBills(billsData || [])
+      setSplits({})
+    }
+    setLoading(false)
+  }
+
+  function resetForm() {
+    setTitle('')
+    setTotalAmount('')
+    setPaidByEmail(user?.email || '')
+    setSplitType('equal')
+    setNotes('')
+    setCustomAmounts({})
+    setSelectedMembers(allParticipants.map(p => p.email))
+    setEditBill(null)
+  }
+
+  function openAddModal() {
+    resetForm()
+    setShowAddModal(true)
+  }
+
+  function openEditModal(bill: any) {
+    setTitle(bill.title)
+    setTotalAmount(String(bill.total_amount))
+    setPaidByEmail(bill.paid_by_email)
+    setSplitType(bill.split_type || 'equal')
+    setNotes(bill.notes || '')
+    setEditBill(bill)
+    const billSplits = splits[bill.id] || []
+    setSelectedMembers(billSplits.map((s: any) => s.user_email))
+    if (bill.split_type === 'custom') {
+      const ca: Record<string, string> = {}
+      billSplits.forEach((s: any) => { ca[s.user_email] = String(s.amount) })
+      setCustomAmounts(ca)
+    } else {
+      setCustomAmounts({})
+    }
+    setShowAddModal(true)
+  }
+
+  async function saveBill() {
+    if (!title.trim() || !totalAmount) return
+    setSaving(true)
+    const amount = parseFloat(totalAmount)
+    const splitAmounts: Record<string, number> = {}
+    if (splitType === 'equal') {
+      const perPerson = Math.round((amount / selectedMembers.length) * 100) / 100
+      selectedMembers.forEach((email, i) => {
+        splitAmounts[email] = i === selectedMembers.length - 1
+          ? Math.round((amount - perPerson * (selectedMembers.length - 1)) * 100) / 100
+          : perPerson
+      })
+    } else {
+      selectedMembers.forEach(email => {
+        splitAmounts[email] = parseFloat(customAmounts[email] || '0')
+      })
+    }
+
+    if (editBill) {
+      await supabase.from('bills').update({ title: title.trim(), total_amount: amount, paid_by_email: paidByEmail, split_type: splitType, notes: notes.trim() || null }).eq('id', editBill.id)
+      await supabase.from('bill_splits').delete().eq('bill_id', editBill.id)
+      const newSplits = selectedMembers.map(email => ({ bill_id: editBill.id, user_email: email, amount: splitAmounts[email], is_paid: false }))
+      await supabase.from('bill_splits').insert(newSplits)
+    } else {
+      const { data: newBill } = await supabase.from('bills').insert({ event_id: eventId, created_by: user.id, title: title.trim(), total_amount: amount, paid_by_email: paidByEmail, split_type: splitType, notes: notes.trim() || null }).select().single()
+      if (newBill) {
+        const newSplits = selectedMembers.map(email => ({ bill_id: newBill.id, user_email: email, amount: splitAmounts[email], is_paid: false }))
+        await supabase.from('bill_splits').insert(newSplits)
+      }
+    }
+    setSaving(false)
+    setShowAddModal(false)
+    resetForm()
+    loadBills()
+  }
+
+  async function deleteBill(billId: string) {
+    await supabase.from('bill_splits').delete().eq('bill_id', billId)
+    await supabase.from('bills').delete().eq('id', billId)
+    setBills(prev => prev.filter(b => b.id !== billId))
+    setSplits(prev => { const next = { ...prev }; delete next[billId]; return next })
+  }
+
+  async function markPaid(splitId: string, billId: string) {
+    await supabase.from('bill_splits').update({ is_paid: true, paid_at: new Date().toISOString() }).eq('id', splitId)
+    setSplits(prev => ({
+      ...prev,
+      [billId]: (prev[billId] || []).map(s => s.id === splitId ? { ...s, is_paid: true, paid_at: new Date().toISOString() } : s)
+    }))
+  }
+
+  async function markUnpaid(splitId: string, billId: string) {
+    await supabase.from('bill_splits').update({ is_paid: false, paid_at: null }).eq('id', splitId)
+    setSplits(prev => ({
+      ...prev,
+      [billId]: (prev[billId] || []).map(s => s.id === splitId ? { ...s, is_paid: false, paid_at: null } : s)
+    }))
+  }
+
+  const userOwed = bills.reduce((sum, bill) => {
+    const billSplits = splits[bill.id] || []
+    const mySplit = billSplits.find(s => s.user_email === user?.email && !s.is_paid)
+    return sum + (mySplit ? parseFloat(mySplit.amount) : 0)
+  }, 0)
+
+  const userPaid = bills.reduce((sum, bill) => {
+    const billSplits = splits[bill.id] || []
+    const mySplit = billSplits.find(s => s.user_email === user?.email && s.is_paid)
+    return sum + (mySplit ? parseFloat(mySplit.amount) : 0)
+  }, 0)
+
+  const modalOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 200 }
+  const modalCard: React.CSSProperties = { background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '480px' : '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#666' }}>Loading payments...</div>
+
+  return (
+    <div style={{ padding: '0 20px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+      {/* Balance Summary */}
+      <div style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Your Balance</div>
+            {userOwed > 0 ? (
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#FF4D00' }}>You owe ${userOwed.toFixed(2)}</div>
+            ) : (
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#00E676' }}>You're settled up!</div>
+            )}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px' }}>Paid</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#00E676' }}>${userPaid.toFixed(2)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Bill Button */}
+      <button onClick={openAddModal} style={{ width: '100%', background: 'rgba(255,77,0,0.1)', border: '1px dashed #FF4D00', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        + Add Bill
+      </button>
+
+      {/* Bills List */}
+      {bills.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
+          <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No bills yet</div>
+          <div style={{ color: '#666', fontSize: '14px', marginBottom: '24px' }}>Add a bill to start tracking<br />group expenses</div>
+          <button onClick={openAddModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px 28px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>+ Add First Bill →</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {bills.map(bill => {
+            const billSplits = splits[bill.id] || []
+            const paidCount = billSplits.filter(s => s.is_paid).length
+            const totalCount = billSplits.length
+            const isExpanded = expandedBill === bill.id
+            const isCreator = bill.created_by === user?.id
+            const progress = totalCount > 0 ? paidCount / totalCount : 0
+
+            return (
+              <div key={bill.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px', overflow: 'hidden' }}>
+                {/* Collapsed Header */}
+                <div onClick={() => setExpandedBill(isExpanded ? null : bill.id)} style={{ padding: '16px 20px', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 700 }}>🧾 {bill.title}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 800 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '13px', color: '#999' }}>Paid by {getName(bill.paid_by_email)}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>{new Date(bill.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ flex: 1, height: '6px', background: '#0A0A0A', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${progress * 100}%`, height: '100%', background: progress === 1 ? '#00E676' : '#FF4D00', borderRadius: '3px', transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ fontSize: '12px', color: progress === 1 ? '#00E676' : '#999', fontWeight: 600, whiteSpace: 'nowrap' }}>{paidCount}/{totalCount} paid</div>
+                  </div>
+                </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div style={{ borderTop: '1px solid #2A2A2A', padding: '16px 20px' }}>
+                    {bill.notes && <div style={{ fontSize: '13px', color: '#999', marginBottom: '14px', fontStyle: 'italic' }}>{bill.notes}</div>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {billSplits.map(split => {
+                        const canMarkPaid = split.user_email === user?.email || isCreator
+                        return (
+                          <div key={split.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#0A0A0A', borderRadius: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '16px' }}>{split.is_paid ? '✅' : '⬜'}</span>
+                              <div>
+                                <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(split.user_email)}</div>
+                                <div style={{ fontSize: '13px', fontWeight: 700, color: split.is_paid ? '#00E676' : '#FF4D00' }}>${parseFloat(split.amount).toFixed(2)}</div>
+                              </div>
+                            </div>
+                            {split.is_paid ? (
+                              canMarkPaid ? (
+                                <button onClick={() => markUnpaid(split.id, bill.id)} style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid #00E676', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#00E676', cursor: 'pointer' }}>Paid ✓</button>
+                              ) : (
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#00E676' }}>Paid ✓</span>
+                              )
+                            ) : (
+                              canMarkPaid && (
+                                <button onClick={() => markPaid(split.id, bill.id)} style={{ background: 'rgba(255,77,0,0.1)', border: '1px solid #FF4D00', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>Mark Paid</button>
+                              )
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {isCreator && (
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                        <button onClick={() => openEditModal(bill)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>Edit</button>
+                        <button onClick={() => deleteBill(bill.id)} style={{ flex: 1, background: 'rgba(255,0,0,0.1)', border: '1px solid #FF3333', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#FF3333', cursor: 'pointer' }}>Delete</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit Bill Modal */}
+      {showAddModal && (
+        <div style={modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) { setShowAddModal(false); resetForm() } }}>
+          <div style={modalCard} onClick={e => e.stopPropagation()}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>{editBill ? 'Edit Bill' : 'Add Bill'}</h2>
+
+            <label style={labelStyle}>Title *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Dinner at Nashville Hot Chicken" style={{ ...inputStyle, marginBottom: '16px' }} />
+
+            <label style={labelStyle}>Total Amount *</label>
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#666', fontSize: '14px', fontWeight: 700 }}>$</span>
+              <input value={totalAmount} onChange={e => setTotalAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" type="text" inputMode="decimal" style={{ ...inputStyle, paddingLeft: '28px' }} />
+            </div>
+
+            <label style={labelStyle}>Paid By</label>
+            <select value={paidByEmail} onChange={e => setPaidByEmail(e.target.value)} style={{ ...inputStyle, marginBottom: '16px', appearance: 'auto' }}>
+              {allParticipants.map(p => (
+                <option key={p.email} value={p.email}>{getName(p.email)}</option>
+              ))}
+            </select>
+
+            <label style={labelStyle}>Split Type</label>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button onClick={() => setSplitType('equal')} style={{ flex: 1, background: splitType === 'equal' ? '#FF4D00' : '#0A0A0A', border: `1px solid ${splitType === 'equal' ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: splitType === 'equal' ? '#fff' : '#999', cursor: 'pointer' }}>Equal</button>
+              <button onClick={() => setSplitType('custom')} style={{ flex: 1, background: splitType === 'custom' ? '#FF4D00' : '#0A0A0A', border: `1px solid ${splitType === 'custom' ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: splitType === 'custom' ? '#fff' : '#999', cursor: 'pointer' }}>Custom</button>
+            </div>
+
+            <label style={labelStyle}>Split Between</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {allParticipants.map(p => {
+                const isSelected = selectedMembers.includes(p.email)
+                const perPerson = splitType === 'equal' && selectedMembers.length > 0 && totalAmount
+                  ? (parseFloat(totalAmount) / selectedMembers.length).toFixed(2)
+                  : null
+                return (
+                  <div key={p.email} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#0A0A0A', borderRadius: '10px', border: `1px solid ${isSelected ? '#2A2A2A' : '#1A1A1A'}` }}>
+                    <button onClick={() => {
+                      setSelectedMembers(prev => isSelected ? prev.filter(e => e !== p.email) : [...prev, p.email])
+                    }} style={{ width: '22px', height: '22px', borderRadius: '6px', border: `2px solid ${isSelected ? '#FF4D00' : '#333'}`, background: isSelected ? '#FF4D00' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                      {isSelected && <span style={{ color: '#fff', fontSize: '12px', fontWeight: 900 }}>✓</span>}
+                    </button>
+                    <div style={{ flex: 1, fontSize: '14px', fontWeight: 600, color: isSelected ? '#F0F0F0' : '#666' }}>{getName(p.email)}</div>
+                    {isSelected && splitType === 'custom' ? (
+                      <div style={{ position: 'relative', width: '90px' }}>
+                        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#666', fontSize: '13px' }}>$</span>
+                        <input value={customAmounts[p.email] || ''} onChange={e => setCustomAmounts(prev => ({ ...prev, [p.email]: e.target.value.replace(/[^0-9.]/g, '') }))} placeholder="0.00" type="text" inputMode="decimal" style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px 10px 8px 24px', fontSize: '13px', color: '#fff', outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+                    ) : isSelected && perPerson ? (
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#999' }}>${perPerson}</span>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+
+            <label style={labelStyle}>Notes (optional)</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional details..." rows={2} style={{ ...inputStyle, marginBottom: '20px', resize: 'none' }} />
+
+            <button onClick={saveBill} disabled={saving || !title.trim() || !totalAmount || selectedMembers.length === 0} style={{ width: '100%', background: saving || !title.trim() || !totalAmount || selectedMembers.length === 0 ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !title.trim() || !totalAmount || selectedMembers.length === 0 ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !title.trim() || !totalAmount ? 'none' : '0 4px 14px rgba(255,77,0,0.4)' }}>
+              {saving ? 'Saving...' : editBill ? 'Save Changes →' : 'Add Bill →'}
+            </button>
+            <button onClick={() => { setShowAddModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string, isDesktop: boolean }) {
   const [groups, setGroups] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -1712,6 +2051,7 @@ function EventPage() {
     { id: 'overview', icon: '🏠', label: 'Overview' },
     { id: 'itinerary', icon: '🗓', label: 'Itinerary' },
     ...((event?.requires_flights || event?.requires_lodging) ? [{ id: 'travel', icon: '🧳', label: 'Travel' }] : []),
+    { id: 'payments', icon: '💰', label: 'Payments' },
     { id: 'vote', icon: '🗳', label: 'Vote' },
     { id: 'chat', icon: '💬', label: 'Chat' },
     { id: 'photos', icon: '📸', label: 'Photos' },
@@ -1804,6 +2144,7 @@ function EventPage() {
 
         {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
         {activeTab === 'travel' && <TravelTab eventId={eventId!} user={user} members={members} getName={getName} isDesktop={isDesktop} />}
+        {activeTab === 'payments' && <PaymentsTab eventId={eventId!} user={user} members={members} event={event} getName={getName} isDesktop={isDesktop} />}
         {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} />}
 
         {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} />}
