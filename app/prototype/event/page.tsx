@@ -695,10 +695,13 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
 
-  const allParticipants = [
-    ...(event?.created_by_email ? [{ email: event.created_by_email }] : []),
-    ...members.filter(m => m.email !== event?.created_by_email)
-  ]
+  const allParticipants = (() => {
+    const list = members.map(m => ({ email: m.user_email }))
+    if (user?.email && !list.some(p => p.email === user.email)) {
+      list.unshift({ email: user.email })
+    }
+    return list
+  })()
 
   useEffect(() => {
     loadBills()
