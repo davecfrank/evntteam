@@ -235,121 +235,6 @@ function FlightCard({ flight, isOwn, onEdit, onDelete, getName }: { flight: any,
   )
 }
 
-function FlightsTab({ eventId, user, members, getName }: { eventId: string, user: any, members: any[], getName: (e: string) => string }) {
-  const [flights, setFlights] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editFlight, setEditFlight] = useState<any>(null)
-  const [airline, setAirline] = useState('')
-  const [flightNumber, setFlightNumber] = useState('')
-  const [departureAirport, setDepartureAirport] = useState('')
-  const [arrivalAirport, setArrivalAirport] = useState('')
-  const [departureTime, setDepartureTime] = useState('')
-  const [arrivalTime, setArrivalTime] = useState('')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('member_flights').select('*').eq('event_id', eventId).order('arrival_time', { ascending: true })
-      setFlights(data || [])
-      setLoading(false)
-    }
-    load()
-  }, [eventId])
-
-  function resetForm() {
-    setAirline(''); setFlightNumber(''); setDepartureAirport(''); setArrivalAirport('')
-    setDepartureTime(''); setArrivalTime(''); setNotes(''); setEditFlight(null)
-  }
-
-  async function saveFlight() {
-    if (!airline.trim() && !flightNumber.trim()) return
-    setSaving(true)
-    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, airline, flight_number: flightNumber, departure_airport: departureAirport, arrival_airport: arrivalAirport, departure_time: departureTime || null, arrival_time: arrivalTime || null, notes }
-    if (editFlight) {
-      const { data } = await supabase.from('member_flights').update(payload).eq('id', editFlight.id).select().single()
-      if (data) setFlights(prev => prev.map(f => f.id === editFlight.id ? data : f))
-    } else {
-      const { data } = await supabase.from('member_flights').insert(payload).select().single()
-      if (data) setFlights(prev => [...prev, data])
-    }
-    resetForm(); setShowModal(false); setSaving(false)
-  }
-
-  async function deleteFlight(id: string) {
-    await supabase.from('member_flights').delete().eq('id', id)
-    setFlights(prev => prev.filter(f => f.id !== id))
-  }
-
-  function openEdit(f: any) {
-    setEditFlight(f); setAirline(f.airline || ''); setFlightNumber(f.flight_number || '')
-    setDepartureAirport(f.departure_airport || ''); setArrivalAirport(f.arrival_airport || '')
-    setDepartureTime(f.departure_time ? f.departure_time.slice(0, 16) : '')
-    setArrivalTime(f.arrival_time ? f.arrival_time.slice(0, 16) : '')
-    setNotes(f.notes || ''); setShowModal(true)
-  }
-
-  const myFlight = flights.find(f => f.user_id === user.id)
-  const otherFlights = flights.filter(f => f.user_id !== user.id)
-
-  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>✈️ Flight Details</div>
-        <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(100, 180, 255, 0.35)' }}>
-          {myFlight ? '✏️ Edit My Flight' : '+ Add My Flight'}
-        </button>
-      </div>
-      {myFlight ? (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHT</div>
-          <FlightCard flight={myFlight} isOwn onEdit={() => openEdit(myFlight)} onDelete={() => deleteFlight(myFlight.id)} getName={getName} />
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✈️</div>
-          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your flight info</div>
-          <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know when you're arriving</div>
-          <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(100, 180, 255, 0.35)' }}>Add My Flight →</button>
-        </div>
-      )}
-      {otherFlights.length > 0 && (
-        <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP FLIGHTS</div>
-          {otherFlights.map(f => <FlightCard key={f.id} flight={f} isOwn={false} getName={getName} />)}
-        </div>
-      )}
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
-            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editFlight ? '✏️ Edit Flight' : '✈️ Add My Flight'}</h2>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Airline</label><input value={airline} onChange={e => setAirline(e.target.value)} placeholder="Delta" style={inputStyle} /></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Flight #</label><input value={flightNumber} onChange={e => setFlightNumber(e.target.value)} placeholder="DL 1234" style={inputStyle} /></div>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>From</label><input value={departureAirport} onChange={e => setDepartureAirport(e.target.value)} placeholder="LAX" style={inputStyle} /></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>To</label><input value={arrivalAirport} onChange={e => setArrivalAirport(e.target.value)} placeholder="BNA" style={inputStyle} /></div>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Departure</label><input type="datetime-local" value={departureTime} onChange={e => setDepartureTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Arrival</label><input type="datetime-local" value={arrivalTime} onChange={e => setArrivalTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
-            </div>
-            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Seat 14A, checked bag, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
-            <button onClick={saveFlight} disabled={saving || (!airline.trim() && !flightNumber.trim())} style={{ width: '100%', background: saving ? '#333' : '#64B4FF', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#000', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving ? 'none' : '0 4px 14px rgba(100, 180, 255, 0.4)' }}>
-              {saving ? 'Saving...' : editFlight ? 'Save Changes →' : 'Add Flight →'}
-            </button>
-            <button onClick={() => { setShowModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function LodgingCard({ lodging, isOwn, onEdit, onDelete }: { lodging: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void }) {
   return (
@@ -386,37 +271,147 @@ function LodgingCard({ lodging, isOwn, onEdit, onDelete }: { lodging: any, isOwn
   )
 }
 
-function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, getName: (e: string) => string }) {
-  const [lodgings, setLodgings] = useState<any[]>([])
+function RentalCarCard({ rental, isOwn, onEdit, onDelete, getName }: { rental: any, isOwn: boolean, onEdit?: () => void, onDelete?: () => void, getName?: (e: string) => string }) {
+  const fmt = (dt: string) => {
+    if (!dt) return null
+    try { return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return dt }
+  }
+  return (
+    <div style={{ background: '#161616', border: `1px solid ${isOwn ? 'rgba(74,222,128,0.2)' : '#2A2A2A'}`, borderRadius: '12px', padding: '16px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ fontSize: '28px' }}>🚗</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '15px' }}>{rental.company}</div>
+            <div style={{ fontSize: '11px', color: '#666' }}>{getName ? getName(rental.user_email) : rental.user_email}</div>
+          </div>
+        </div>
+        {isOwn && (
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={onEdit} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#F0F0F0', cursor: 'pointer', fontWeight: 700 }}>✏️</button>
+            <button onClick={onDelete} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', color: '#FF4D00', cursor: 'pointer', fontWeight: 700 }}>🗑</button>
+          </div>
+        )}
+      </div>
+      {(rental.pickup_location || rental.dropoff_location) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={{ fontSize: '12px', fontWeight: 700 }}>{rental.pickup_location || '—'}</div>
+            {fmt(rental.pickup_time) && <div style={{ fontSize: '10px', color: '#666' }}>{fmt(rental.pickup_time)}</div>}
+          </div>
+          <div style={{ fontSize: '16px', color: '#4ADE80' }}>→</div>
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={{ fontSize: '12px', fontWeight: 700 }}>{rental.dropoff_location || '—'}</div>
+            {fmt(rental.dropoff_time) && <div style={{ fontSize: '10px', color: '#666' }}>{fmt(rental.dropoff_time)}</div>}
+          </div>
+        </div>
+      )}
+      {rental.confirmation_code && (
+        <div style={{ background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px' }}>
+          <div style={{ fontSize: '10px', color: '#4ADE80', fontWeight: 700, marginBottom: '2px' }}>CONFIRMATION</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '1px' }}>{rental.confirmation_code}</div>
+        </div>
+      )}
+      {rental.notes && <div style={{ fontSize: '12px', color: '#666', borderTop: '1px solid #1A1A1A', paddingTop: '8px' }}>📝 {rental.notes}</div>}
+    </div>
+  )
+}
+
+function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: string, user: any, members: any[], getName: (e: string) => string, isDesktop: boolean }) {
+  const [activeSection, setActiveSection] = useState<'flights' | 'lodging' | 'rental'>('flights')
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+
+  // Flights state
+  const [flights, setFlights] = useState<any[]>([])
+  const [showFlightModal, setShowFlightModal] = useState(false)
+  const [editFlight, setEditFlight] = useState<any>(null)
+  const [airline, setAirline] = useState('')
+  const [flightNumber, setFlightNumber] = useState('')
+  const [departureAirport, setDepartureAirport] = useState('')
+  const [arrivalAirport, setArrivalAirport] = useState('')
+  const [departureTime, setDepartureTime] = useState('')
+  const [arrivalTime, setArrivalTime] = useState('')
+  const [flightNotes, setFlightNotes] = useState('')
+
+  // Lodging state
+  const [lodgings, setLodgings] = useState<any[]>([])
+  const [showLodgingModal, setShowLodgingModal] = useState(false)
   const [editLodging, setEditLodging] = useState<any>(null)
   const [hotelName, setHotelName] = useState('')
   const [address, setAddress] = useState('')
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [confirmationCode, setConfirmationCode] = useState('')
-  const [notes, setNotes] = useState('')
+  const [lodgingNotes, setLodgingNotes] = useState('')
+
+  // Rental car state
+  const [rentals, setRentals] = useState<any[]>([])
+  const [showRentalModal, setShowRentalModal] = useState(false)
+  const [editRental, setEditRental] = useState<any>(null)
+  const [rentalCompany, setRentalCompany] = useState('')
+  const [rentalConfirmation, setRentalConfirmation] = useState('')
+  const [pickupLocation, setPickupLocation] = useState('')
+  const [pickupTime, setPickupTime] = useState('')
+  const [dropoffLocation, setDropoffLocation] = useState('')
+  const [dropoffTime, setDropoffTime] = useState('')
+  const [rentalNotes, setRentalNotes] = useState('')
+
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('member_lodging').select('*').eq('event_id', eventId).order('check_in', { ascending: true })
-      setLodgings(data || [])
+      const [f, l, r] = await Promise.all([
+        supabase.from('member_flights').select('*').eq('event_id', eventId).order('departure_time', { ascending: true }),
+        supabase.from('member_lodging').select('*').eq('event_id', eventId).order('check_in', { ascending: true }),
+        supabase.from('member_rental_cars').select('*').eq('event_id', eventId).order('pickup_time', { ascending: true }),
+      ])
+      setFlights(f.data || [])
+      setLodgings(l.data || [])
+      setRentals(r.data || [])
       setLoading(false)
     }
     load()
   }, [eventId])
 
-  function resetForm() {
-    setHotelName(''); setAddress(''); setCheckIn(''); setCheckOut('')
-    setConfirmationCode(''); setNotes(''); setEditLodging(null)
+  // Flight functions
+  function resetFlightForm() {
+    setAirline(''); setFlightNumber(''); setDepartureAirport(''); setArrivalAirport('')
+    setDepartureTime(''); setArrivalTime(''); setFlightNotes(''); setEditFlight(null)
+  }
+  async function saveFlight() {
+    if (!airline.trim() && !flightNumber.trim()) return
+    setSaving(true)
+    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, airline, flight_number: flightNumber, departure_airport: departureAirport, arrival_airport: arrivalAirport, departure_time: departureTime || null, arrival_time: arrivalTime || null, notes: flightNotes }
+    if (editFlight) {
+      const { data } = await supabase.from('member_flights').update(payload).eq('id', editFlight.id).select().single()
+      if (data) setFlights(prev => prev.map(f => f.id === editFlight.id ? data : f))
+    } else {
+      const { data } = await supabase.from('member_flights').insert(payload).select().single()
+      if (data) setFlights(prev => [...prev, data])
+    }
+    resetFlightForm(); setShowFlightModal(false); setSaving(false)
+  }
+  async function deleteFlight(id: string) {
+    await supabase.from('member_flights').delete().eq('id', id)
+    setFlights(prev => prev.filter(f => f.id !== id))
+  }
+  function openEditFlight(f: any) {
+    setEditFlight(f); setAirline(f.airline || ''); setFlightNumber(f.flight_number || '')
+    setDepartureAirport(f.departure_airport || ''); setArrivalAirport(f.arrival_airport || '')
+    setDepartureTime(f.departure_time ? f.departure_time.slice(0, 16) : '')
+    setArrivalTime(f.arrival_time ? f.arrival_time.slice(0, 16) : '')
+    setFlightNotes(f.notes || ''); setShowFlightModal(true)
   }
 
+  // Lodging functions
+  function resetLodgingForm() {
+    setHotelName(''); setAddress(''); setCheckIn(''); setCheckOut('')
+    setConfirmationCode(''); setLodgingNotes(''); setEditLodging(null)
+  }
   async function saveLodging() {
     if (!hotelName.trim()) return
     setSaving(true)
-    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, hotel_name: hotelName, address, check_in: checkIn || null, check_out: checkOut || null, confirmation_code: confirmationCode, notes }
+    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, hotel_name: hotelName, address, check_in: checkIn || null, check_out: checkOut || null, confirmation_code: confirmationCode, notes: lodgingNotes }
     if (editLodging) {
       const { data } = await supabase.from('member_lodging').update(payload).eq('id', editLodging.id).select().single()
       if (data) setLodgings(prev => prev.map(l => l.id === editLodging.id ? data : l))
@@ -424,20 +419,49 @@ function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, ge
       const { data } = await supabase.from('member_lodging').insert(payload).select().single()
       if (data) setLodgings(prev => [...prev, data])
     }
-    resetForm(); setShowModal(false); setSaving(false)
+    resetLodgingForm(); setShowLodgingModal(false); setSaving(false)
   }
-
   async function deleteLodging(id: string) {
     await supabase.from('member_lodging').delete().eq('id', id)
     setLodgings(prev => prev.filter(l => l.id !== id))
   }
-
-  function openEdit(l: any) {
+  function openEditLodging(l: any) {
     setEditLodging(l); setHotelName(l.hotel_name || ''); setAddress(l.address || '')
     setCheckIn(l.check_in || ''); setCheckOut(l.check_out || '')
-    setConfirmationCode(l.confirmation_code || ''); setNotes(l.notes || ''); setShowModal(true)
+    setConfirmationCode(l.confirmation_code || ''); setLodgingNotes(l.notes || ''); setShowLodgingModal(true)
   }
 
+  // Rental car functions
+  function resetRentalForm() {
+    setRentalCompany(''); setRentalConfirmation(''); setPickupLocation(''); setPickupTime('')
+    setDropoffLocation(''); setDropoffTime(''); setRentalNotes(''); setEditRental(null)
+  }
+  async function saveRental() {
+    if (!rentalCompany.trim()) return
+    setSaving(true)
+    const payload = { event_id: eventId, user_id: user.id, user_email: user.email, company: rentalCompany, confirmation_code: rentalConfirmation, pickup_location: pickupLocation, pickup_time: pickupTime || null, dropoff_location: dropoffLocation, dropoff_time: dropoffTime || null, notes: rentalNotes }
+    if (editRental) {
+      const { data } = await supabase.from('member_rental_cars').update(payload).eq('id', editRental.id).select().single()
+      if (data) setRentals(prev => prev.map(r => r.id === editRental.id ? data : r))
+    } else {
+      const { data } = await supabase.from('member_rental_cars').insert(payload).select().single()
+      if (data) setRentals(prev => [...prev, data])
+    }
+    resetRentalForm(); setShowRentalModal(false); setSaving(false)
+  }
+  async function deleteRental(id: string) {
+    await supabase.from('member_rental_cars').delete().eq('id', id)
+    setRentals(prev => prev.filter(r => r.id !== id))
+  }
+  function openEditRental(r: any) {
+    setEditRental(r); setRentalCompany(r.company || ''); setRentalConfirmation(r.confirmation_code || '')
+    setPickupLocation(r.pickup_location || ''); setPickupTime(r.pickup_time ? r.pickup_time.slice(0, 16) : '')
+    setDropoffLocation(r.dropoff_location || ''); setDropoffTime(r.dropoff_time ? r.dropoff_time.slice(0, 16) : '')
+    setRentalNotes(r.notes || ''); setShowRentalModal(true)
+  }
+
+  const myFlight = flights.find(f => f.user_id === user.id)
+  const otherFlights = flights.filter(f => f.user_id !== user.id)
   const myLodging = lodgings.find(l => l.user_id === user.id)
   const otherLodgings = lodgings.filter(l => l.user_id !== user.id)
   const hotelGroups = otherLodgings.reduce((acc: any, l) => {
@@ -446,53 +470,169 @@ function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, ge
     acc[key].push(l)
     return acc
   }, {})
+  const myRental = rentals.find(r => r.user_id === user.id)
+  const otherRentals = rentals.filter(r => r.user_id !== user.id)
+
+  const sections = [
+    { id: 'flights' as const, icon: '✈️', label: 'Flights', count: flights.length },
+    { id: 'lodging' as const, icon: '🏨', label: 'Lodging', count: lodgings.length },
+    { id: 'rental' as const, icon: '🚗', label: 'Rentals', count: rentals.length },
+  ]
+
+  const modalOverlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 200 }
+  const modalCard: React.CSSProperties = { background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '480px' : '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🏨 Lodging</div>
-        <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(180, 100, 255, 0.35)' }}>
-          {myLodging ? '✏️ Edit My Stay' : '+ Add My Stay'}
-        </button>
+      {/* Section toggle bar */}
+      <div style={{ display: 'flex', gap: '0', marginBottom: '24px', borderBottom: '1px solid #2A2A2A' }}>
+        {sections.map(s => (
+          <button key={s.id} onClick={() => setActiveSection(s.id)} style={{ flex: 1, padding: '12px 8px', background: 'none', border: 'none', borderBottom: activeSection === s.id ? '2px solid #FF4D00' : '2px solid transparent', color: activeSection === s.id ? '#F0F0F0' : '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <span>{s.icon}</span> {s.label} {s.count > 0 && <span style={{ fontSize: '10px', background: activeSection === s.id ? 'rgba(255,77,0,0.15)' : '#2A2A2A', padding: '1px 6px', borderRadius: '8px', color: activeSection === s.id ? '#FF4D00' : '#666' }}>{s.count}</span>}
+          </button>
+        ))}
       </div>
-      {myLodging ? (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#B464FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY STAY</div>
-          <LodgingCard lodging={myLodging} isOwn onEdit={() => openEdit(myLodging)} onDelete={() => deleteLodging(myLodging.id)} />
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏨</div>
-          <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your lodging info</div>
-          <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know where you're staying</div>
-          <button onClick={() => { resetForm(); setShowModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(180, 100, 255, 0.35)' }}>Add My Stay →</button>
+
+      {/* ===== FLIGHTS SECTION ===== */}
+      {activeSection === 'flights' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>✈️ Flight Details</div>
+            <button onClick={() => { resetFlightForm(); setShowFlightModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(100, 180, 255, 0.35)' }}>
+              {myFlight ? '✏️ Edit My Flight' : '+ Add My Flight'}
+            </button>
+          </div>
+          {myFlight ? (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHT</div>
+              <FlightCard flight={myFlight} isOwn onEdit={() => openEditFlight(myFlight)} onDelete={() => deleteFlight(myFlight.id)} getName={getName} />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>✈️</div>
+              <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your flight info</div>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know when you're arriving</div>
+              <button onClick={() => { resetFlightForm(); setShowFlightModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(100, 180, 255, 0.35)' }}>Add My Flight →</button>
+            </div>
+          )}
+          {otherFlights.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP FLIGHTS</div>
+              {otherFlights.map(f => <FlightCard key={f.id} flight={f} isOwn={false} getName={getName} />)}
+            </div>
+          )}
         </div>
       )}
-      {Object.keys(hotelGroups).length > 0 && (
+
+      {/* ===== LODGING SECTION ===== */}
+      {activeSection === 'lodging' && (
         <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP STAYS</div>
-          {Object.entries(hotelGroups).map(([hotel, people]: any) => (
-            <div key={hotel} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
-              <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>🏨 {hotel}</div>
-              {people.map((l: any) => (
-                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid #1A1A1A' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getName(l.user_email)[0]?.toUpperCase()}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600 }}>{getName(l.user_email)}</div>
-                    {(l.check_in || l.check_out) && <div style={{ fontSize: '11px', color: '#666' }}>{l.check_in && `Check-in: ${l.check_in}`}{l.check_in && l.check_out ? ' · ' : ''}{l.check_out && `Check-out: ${l.check_out}`}</div>}
-                  </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🏨 Lodging</div>
+            <button onClick={() => { resetLodgingForm(); setShowLodgingModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(180, 100, 255, 0.35)' }}>
+              {myLodging ? '✏️ Edit My Stay' : '+ Add My Stay'}
+            </button>
+          </div>
+          {myLodging ? (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#B464FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY STAY</div>
+              <LodgingCard lodging={myLodging} isOwn onEdit={() => openEditLodging(myLodging)} onDelete={() => deleteLodging(myLodging.id)} />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏨</div>
+              <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your lodging info</div>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know where you're staying</div>
+              <button onClick={() => { resetLodgingForm(); setShowLodgingModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(180, 100, 255, 0.35)' }}>Add My Stay →</button>
+            </div>
+          )}
+          {Object.keys(hotelGroups).length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP STAYS</div>
+              {Object.entries(hotelGroups).map(([hotel, people]: any) => (
+                <div key={hotel} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '14px', marginBottom: '10px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>🏨 {hotel}</div>
+                  {people.map((l: any) => (
+                    <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderTop: '1px solid #1A1A1A' }}>
+                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getName(l.user_email)[0]?.toUpperCase()}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>{getName(l.user_email)}</div>
+                        {(l.check_in || l.check_out) && <div style={{ fontSize: '11px', color: '#666' }}>{l.check_in && `Check-in: ${l.check_in}`}{l.check_in && l.check_out ? ' · ' : ''}{l.check_out && `Check-out: ${l.check_out}`}</div>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
-          ))}
+          )}
         </div>
       )}
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+
+      {/* ===== RENTAL CARS SECTION ===== */}
+      {activeSection === 'rental' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🚗 Rental Cars</div>
+            <button onClick={() => { resetRentalForm(); setShowRentalModal(true) }} style={{ background: '#4ADE80', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(74, 222, 128, 0.35)' }}>
+              {myRental ? '✏️ Edit My Rental' : '+ Add My Rental'}
+            </button>
+          </div>
+          {myRental ? (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#4ADE80', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY RENTAL</div>
+              <RentalCarCard rental={myRental} isOwn onEdit={() => openEditRental(myRental)} onDelete={() => deleteRental(myRental.id)} getName={getName} />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚗</div>
+              <div style={{ fontWeight: 700, marginBottom: '6px', fontSize: '14px' }}>Add your rental car info</div>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '14px' }}>Let the group know about your rental</div>
+              <button onClick={() => { resetRentalForm(); setShowRentalModal(true) }} style={{ background: '#4ADE80', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(74, 222, 128, 0.35)' }}>Add My Rental →</button>
+            </div>
+          )}
+          {otherRentals.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>GROUP RENTALS</div>
+              {otherRentals.map(r => <RentalCarCard key={r.id} rental={r} isOwn={false} getName={getName} />)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== FLIGHT MODAL ===== */}
+      {showFlightModal && (
+        <div style={modalOverlay}>
+          <div style={modalCard}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editFlight ? '✏️ Edit Flight' : '✈️ Add My Flight'}</h2>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Airline</label><input value={airline} onChange={e => setAirline(e.target.value)} placeholder="Delta" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Flight #</label><input value={flightNumber} onChange={e => setFlightNumber(e.target.value)} placeholder="DL 1234" style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>From</label><input value={departureAirport} onChange={e => setDepartureAirport(e.target.value)} placeholder="LAX" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>To</label><input value={arrivalAirport} onChange={e => setArrivalAirport(e.target.value)} placeholder="BNA" style={inputStyle} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Departure</label><input type="datetime-local" value={departureTime} onChange={e => setDepartureTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Arrival</label><input type="datetime-local" value={arrivalTime} onChange={e => setArrivalTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            </div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={flightNotes} onChange={e => setFlightNotes(e.target.value)} placeholder="Seat 14A, checked bag, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <button onClick={saveFlight} disabled={saving || (!airline.trim() && !flightNumber.trim())} style={{ width: '100%', background: saving ? '#333' : '#64B4FF', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#000', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving ? 'none' : '0 4px 14px rgba(100, 180, 255, 0.4)' }}>
+              {saving ? 'Saving...' : editFlight ? 'Save Changes →' : 'Add Flight →'}
+            </button>
+            <button onClick={() => { setShowFlightModal(false); resetFlightForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== LODGING MODAL ===== */}
+      {showLodgingModal && (
+        <div style={modalOverlay}>
+          <div style={modalCard}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editLodging ? '✏️ Edit Stay' : '🏨 Add My Stay'}</h2>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Hotel / Airbnb Name *</label><input value={hotelName} onChange={e => setHotelName(e.target.value)} placeholder="The Grand Hyatt" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Address</label><input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Broadway, Nashville TN" style={inputStyle} /></div>
@@ -501,11 +641,36 @@ function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, ge
               <div style={{ flex: 1 }}><label style={labelStyle}>Check-out</label><input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             </div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Confirmation Code</label><input value={confirmationCode} onChange={e => setConfirmationCode(e.target.value)} placeholder="ABC123XYZ" style={inputStyle} /></div>
-            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Pool access, parking, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={lodgingNotes} onChange={e => setLodgingNotes(e.target.value)} placeholder="Pool access, parking, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <button onClick={saveLodging} disabled={saving || !hotelName.trim()} style={{ width: '100%', background: saving || !hotelName.trim() ? '#333' : '#B464FF', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !hotelName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !hotelName.trim() ? 'none' : '0 4px 14px rgba(180, 100, 255, 0.4)' }}>
               {saving ? 'Saving...' : editLodging ? 'Save Changes →' : 'Add Stay →'}
             </button>
-            <button onClick={() => { setShowModal(false); resetForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+            <button onClick={() => { setShowLodgingModal(false); resetLodgingForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== RENTAL CAR MODAL ===== */}
+      {showRentalModal && (
+        <div style={modalOverlay}>
+          <div style={modalCard}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editRental ? '✏️ Edit Rental' : '🚗 Add My Rental'}</h2>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Rental Company *</label><input value={rentalCompany} onChange={e => setRentalCompany(e.target.value)} placeholder="Enterprise, Hertz, Turo..." style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Confirmation Code</label><input value={rentalConfirmation} onChange={e => setRentalConfirmation(e.target.value)} placeholder="RES123456" style={inputStyle} /></div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Pickup Location</label><input value={pickupLocation} onChange={e => setPickupLocation(e.target.value)} placeholder="BNA Airport" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Pickup Time</label><input type="datetime-local" value={pickupTime} onChange={e => setPickupTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Dropoff Location</label><input value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)} placeholder="BNA Airport" style={inputStyle} /></div>
+              <div style={{ flex: 1 }}><label style={labelStyle}>Dropoff Time</label><input type="datetime-local" value={dropoffTime} onChange={e => setDropoffTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            </div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={rentalNotes} onChange={e => setRentalNotes(e.target.value)} placeholder="Vehicle type, insurance, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <button onClick={saveRental} disabled={saving || !rentalCompany.trim()} style={{ width: '100%', background: saving || !rentalCompany.trim() ? '#333' : '#4ADE80', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#000', cursor: saving || !rentalCompany.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !rentalCompany.trim() ? 'none' : '0 4px 14px rgba(74, 222, 128, 0.4)' }}>
+              {saving ? 'Saving...' : editRental ? 'Save Changes →' : 'Add Rental →'}
+            </button>
+            <button onClick={() => { setShowRentalModal(false); resetRentalForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -1546,8 +1711,7 @@ function EventPage() {
   const tabs = [
     { id: 'overview', icon: '🏠', label: 'Overview' },
     { id: 'itinerary', icon: '🗓', label: 'Itinerary' },
-    ...(event?.requires_flights ? [{ id: 'flights', icon: '✈️', label: 'Flights' }] : []),
-    ...(event?.requires_lodging ? [{ id: 'lodging', icon: '🏨', label: 'Lodging' }] : []),
+    ...((event?.requires_flights || event?.requires_lodging) ? [{ id: 'travel', icon: '🧳', label: 'Travel' }] : []),
     { id: 'vote', icon: '🗳', label: 'Vote' },
     { id: 'chat', icon: '💬', label: 'Chat' },
     { id: 'photos', icon: '📸', label: 'Photos' },
@@ -1573,8 +1737,7 @@ function EventPage() {
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {getCountdown(event?.dates) && <div style={{ fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>⏳ {getCountdown(event?.dates)}</div>}
-          {event?.requires_flights && <div style={{ fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>✈️ Flights</div>}
-          {event?.requires_lodging && <div style={{ fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px', background: 'rgba(180,100,255,0.1)', color: '#B464FF' }}>🏨 Lodging</div>}
+          {(event?.requires_flights || event?.requires_lodging) && <div style={{ fontSize: '12px', fontWeight: 700, padding: '6px 10px', borderRadius: '8px', background: 'rgba(255,77,0,0.1)', color: '#FF4D00' }}>🧳 Travel</div>}
         </div>
       </div>
 
@@ -1640,8 +1803,7 @@ function EventPage() {
         )}
 
         {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
-        {activeTab === 'flights' && event?.requires_flights && <FlightsTab eventId={eventId!} user={user} members={members} getName={getName} />}
-        {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} getName={getName} />}
+        {activeTab === 'travel' && <TravelTab eventId={eventId!} user={user} members={members} getName={getName} isDesktop={isDesktop} />}
         {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} />}
 
         {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} />}
