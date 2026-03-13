@@ -513,7 +513,7 @@ function LodgingTab({ eventId, user, getName }: { eventId: string, user: any, ge
   )
 }
 
-function ChatTab({ eventId, user, members, flights, lodgings, getName }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string }) {
+function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string, isDesktop: boolean }) {
   const [groups, setGroups] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -529,6 +529,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
   const CHAT_EMOJIS = ['👍', '❤️', '😂', '🔥', '😮', '👎']
+  const [realtimeStatus, setRealtimeStatus] = useState<string>('disconnected')
 
   useEffect(() => {
     async function load() {
@@ -564,12 +565,26 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
       }
     }
     loadReactions()
+    let pollingInterval: ReturnType<typeof setInterval> | null = null
     const sub = supabase.channel(`chat:${activeGroup.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `group_id=eq.${activeGroup.id}` }, payload => {
         setMessages(prev => prev.some(m => m.id === (payload.new as any).id) ? prev : [...prev, payload.new])
       })
-      .subscribe()
-    return () => { supabase.removeChannel(sub) }
+      .subscribe((status) => {
+        setRealtimeStatus(status)
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+          if (!pollingInterval) {
+            pollingInterval = setInterval(async () => {
+              const { data } = await supabase.from('chat_messages').select('*').eq('group_id', activeGroup.id).order('created_at', { ascending: true })
+              if (data) setMessages(data)
+            }, 5000)
+          }
+        }
+        if (status === 'SUBSCRIBED') {
+          if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null }
+        }
+      })
+    return () => { supabase.removeChannel(sub); if (pollingInterval) clearInterval(pollingInterval) }
   }, [activeGroup])
 
   async function createGroup(name: string, autoCreated = false) {
@@ -623,11 +638,12 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
 
   if (activeGroup) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 280px)', minHeight: '400px', maxWidth: isDesktop ? '640px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <button onClick={() => { setActiveGroup(null); setReplyTo(null); setShowReactions(null) }} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
           <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeGroup.name}</div>
           {activeGroup.auto_created && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>AUTO</div>}
+          {realtimeStatus !== 'SUBSCRIBED' && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>{realtimeStatus === 'disconnected' ? 'connecting...' : 'polling'}</div>}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
           {messages.length === 0 ? (
@@ -645,7 +661,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
               return (
                 <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '8px' }}>
                   {!isMe && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{getName(msg.user_email)[0]?.toUpperCase()}</div>}
-                  <div style={{ maxWidth: '75%', position: 'relative' }}>
+                  <div style={{ maxWidth: isDesktop ? '420px' : '75%', position: 'relative' }}>
                     {!isMe && <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px', fontWeight: 600 }}>{getName(msg.user_email)}</div>}
                     {/* Reply preview */}
                     {repliedMsg && (
@@ -742,9 +758,9 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
         </div>
       )}
       {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '440px' : '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>💬 Create Chat Group</h2>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Group Name</label><input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Arriving Friday, Hotel Crew, etc." style={inputStyle} autoFocus /></div>
             <button onClick={() => createGroup(groupName)} disabled={saving || !groupName.trim()} style={{ width: '100%', background: saving || !groupName.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !groupName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !groupName.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
@@ -1375,6 +1391,14 @@ function EventPage() {
   const [inviteRole, setInviteRole] = useState('member')
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   function getName(emailOrId: string | undefined | null): string {
     if (!emailOrId) return 'Unknown'
@@ -1535,12 +1559,12 @@ function EventPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '100px' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
         {isHost && <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>👑 Host</div>}
       </div>
 
-      <div style={{ padding: '24px', borderBottom: '1px solid #1A1A1A' }}>
+      <div style={{ padding: '24px', borderBottom: '1px solid #1A1A1A', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         <div style={{ fontSize: '48px', marginBottom: '12px' }}>{getEmoji(event?.event_type)}</div>
         <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>{event?.name}</h1>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
@@ -1554,7 +1578,7 @@ function EventPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #1A1A1A', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #1A1A1A', overflowX: 'auto', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: '12px 12px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #FF4D00' : '2px solid transparent', color: activeTab === tab.id ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {tab.icon}<br />{tab.label}
@@ -1562,7 +1586,7 @@ function EventPage() {
         ))}
       </div>
 
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: '24px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         {activeTab === 'overview' && (
           <div>
             <div style={{ marginBottom: '24px' }}>
@@ -1618,7 +1642,7 @@ function EventPage() {
         {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
         {activeTab === 'flights' && event?.requires_flights && <FlightsTab eventId={eventId!} user={user} members={members} getName={getName} />}
         {activeTab === 'lodging' && event?.requires_lodging && <LodgingTab eventId={eventId!} user={user} getName={getName} />}
-        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} />}
+        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} />}
 
         {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} />}
 
@@ -1626,9 +1650,9 @@ function EventPage() {
       </div>
 
       {showInviteModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}>
-          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
-            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '480px' : '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box', maxHeight: isDesktop ? '85vh' : undefined, overflowY: isDesktop ? 'auto' : undefined }}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '6px' }}>Invite Friends</h2>
             <p style={{ color: '#666', fontSize: '13px', marginBottom: '24px' }}>Invite people to {event?.name}</p>
             <button onClick={shareViaText} style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)' }}>
@@ -1663,7 +1687,7 @@ function EventPage() {
         </div>
       )}
 
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: isDesktop ? '900px' : undefined, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
         {[
           { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
           { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
