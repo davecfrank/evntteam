@@ -1351,7 +1351,7 @@ function VoteTab({ eventId, user, members }: { eventId: string, user: any, membe
             </div>
             <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '12px', color: '#666', fontFamily: 'monospace' }}>
-                {ups} 👍 · {downs} 👎 · {totalVotes}/{memberCount} voted
+                {ups} Yes · {downs} No · {totalVotes}/{memberCount} voted
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
