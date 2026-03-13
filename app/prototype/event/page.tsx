@@ -594,7 +594,8 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
         if (d2) setMessages(prev => prev.some(m => m.id === d2.id) ? prev : [...prev, { ...d2, reply_to: replyTo?.id }])
       }
     } else if (data) {
-      setMessages(prev => prev.some(m => m.id === data.id) ? prev : [...prev, data])
+      const msg = replyTo ? { ...data, reply_to: replyTo.id } : data
+      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
     }
     setNewMessage(''); setReplyTo(null); setSending(false)
   }
@@ -655,7 +656,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName }: { event
                     {/* Message bubble */}
                     <div
                       onClick={() => setShowReactions(showReactions === msg.id ? null : msg.id)}
-                      style={{ background: isMe ? '#FF4D00' : '#1E1E1E', border: isMe ? 'none' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4, cursor: 'pointer' }}
+                      style={{ background: isMe ? '#1A3A3A' : '#1E1E1E', border: isMe ? '1px solid #2A4A4A' : '1px solid #2A2A2A', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 14px', fontSize: '14px', color: '#fff', lineHeight: 1.4, cursor: 'pointer' }}
                     >{msg.content}</div>
                     {/* Reaction badges */}
                     {reactionCounts.length > 0 && (
