@@ -214,13 +214,14 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
             </div>
             {dateItems.map((item: any) => {
               const past = isPast(item)
-              return <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: past ? '8px' : '12px', marginBottom: past ? '6px' : '10px', overflow: 'hidden', opacity: past ? 0.45 : 1 }}>
-                <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: past ? '6px 12px' : '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: past ? '8px' : '12px' }}>
-                  <div style={{ fontSize: past ? '16px' : '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>
+              return <div key={item.id} style={{ background: past ? 'transparent' : '#161616', border: past ? 'none' : '1px solid #2A2A2A', borderRadius: past ? '0' : '12px', marginBottom: past ? '2px' : '10px', overflow: 'hidden', opacity: past ? 0.4 : 1 }}>
+                <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: past ? '4px 8px' : '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: past ? '6px' : '12px' }}>
+                  {!past && <div style={{ fontSize: '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>}
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: past ? '0px' : '4px' }}>
-                      <div style={{ fontWeight: 700, fontSize: past ? '12px' : '14px' }}>{item.title}</div>
-                      {past && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(102,102,102,0.15)', color: '#666' }}>Done</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: past ? '0px' : '4px' }}>
+                      {past && <div style={{ fontSize: '11px', color: '#555', textDecoration: 'line-through' }}>{item.title}</div>}
+                      {past && <div style={{ fontSize: '9px', fontWeight: 700, color: '#444' }}>Done</div>}
+                      {!past && <div style={{ fontWeight: 700, fontSize: '14px' }}>{item.title}</div>}
                       {!past && item.is_votable && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>🗳 VOTE</div>}
                       {!past && item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
                     </div>
@@ -230,7 +231,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
                     </div>}
                     {!past && item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{item.description}</div>}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>
+                  {!past && <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>}
                 </div>
                 {expandedItem === item.id && (
                   <div style={{ padding: '0 16px 16px', borderTop: '1px solid #1A1A1A' }}>
