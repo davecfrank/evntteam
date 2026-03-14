@@ -2295,13 +2295,15 @@ function EventPage() {
     if (event && 'payments_enabled' in event) payload.payments_enabled = editPaymentsEnabled
     if (event && 'voting_enabled' in event) payload.voting_enabled = editVotingEnabled
 
-    const { data, error } = await supabase.from('events').update(payload).eq('id', eventId).select().single()
+    const { data, error } = await supabase.from('events').update(payload).eq('id', eventId).select()
     if (error) {
       console.error('Edit event error:', error)
       setEditError(error.message || 'Failed to save changes')
-    } else if (data) {
-      setEvent(data)
+    } else if (data && data.length > 0) {
+      setEvent(data[0])
       setShowEditModal(false)
+    } else {
+      setEditError('No rows updated — you may not have permission to edit this event.')
     }
     setEditSaving(false)
   }
