@@ -2501,12 +2501,10 @@ function EventPage() {
               {rsvpExpanded && (
                 <div>
                   {rsvpExpanded === 'going' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(user?.email)}</div>
-                        <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
+                      <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(user?.email)}</div>
+                      <span style={{ fontSize: '14px' }}>👑</span>
                     </div>
                   )}
                   {members.filter(m => (m.rsvp_status || 'invited') === rsvpExpanded).map((member, i) => {
@@ -2520,15 +2518,13 @@ function EventPage() {
                         </div>
                       </div>
                     ) : (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(member.user_email)}</div>
-                          <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'}</div>
-                        </div>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
+                        <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(member.user_email)}</div>
+                        <span style={{ fontSize: '14px' }}>{member.role_level === 'cohost' ? '⭐' : '👤'}</span>
                         {canRemoveThis && (
-                          <div onClick={() => setConfirmRemove(member.id)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                            <span style={{ color: '#FF4D00', fontSize: '14px', fontWeight: 700 }}>✕</span>
+                          <div onClick={() => setConfirmRemove(member.id)} style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                            <span style={{ color: '#FF4D00', fontSize: '12px', fontWeight: 700 }}>✕</span>
                           </div>
                         )}
                       </div>
