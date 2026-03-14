@@ -2699,20 +2699,7 @@ function EventPage() {
         </div>
       )}
 
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: isDesktop ? '900px' : undefined, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
-        {[
-          { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
-          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
-          { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
-          { icon: '💬', label: 'Chat', path: '/prototype/chat' },
-          { icon: '👤', label: 'Profile', path: '/prototype/profile' },
-        ].map(item => (
-          <button key={item.label} onClick={() => router.push(item.path)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {/* Bottom nav hidden for now — will refine later */}
     </main>
   )
 }
