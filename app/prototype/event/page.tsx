@@ -2384,7 +2384,10 @@ function EventPage() {
 
       <div style={{ padding: '24px', borderBottom: '1px solid #1A1A1A', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         <div style={{ fontSize: '48px', marginBottom: '12px' }}>{getEmoji(event?.event_type)}</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>{event?.name}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 900, margin: 0 }}>{event?.name}</h1>
+          {(isHost || isCohost) && <button onClick={openEditModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)', whiteSpace: 'nowrap' }}>Edit Event</button>}
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
           {event?.destination && <div style={{ fontSize: '13px', color: '#888' }}>📍 {event.destination}</div>}
           {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {(() => {
@@ -2542,18 +2545,6 @@ function EventPage() {
               </div>
             )}
 
-            {(isHost || isCohost) && (
-              <div onClick={openEditModal} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', marginBottom: '16px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '18px' }}>✏️</span>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700 }}>Edit Event Details</div>
-                    <div style={{ fontSize: '11px', color: '#666' }}>Name, dates, features & more</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: '14px', color: '#666' }}>→</div>
-              </div>
-            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {tabs.filter(t => t.id !== 'overview').map(action => (
                 <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
