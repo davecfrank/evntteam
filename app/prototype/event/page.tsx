@@ -73,38 +73,6 @@ function ScrollTimePicker({ value, onChange, label }: { value: string, onChange:
   )
 }
 
-function DurationPicker({ value, onChange }: { value: number | null, onChange: (v: number | null) => void }) {
-  const options = [{ label: '30m', mins: 30 }, { label: '1h', mins: 60 }, { label: '1.5h', mins: 90 }, { label: '2h', mins: 120 }, { label: '3h', mins: 180 }, { label: 'All day', mins: 1440 }]
-  return (
-    <div style={{ marginBottom: '14px' }}>
-      <label style={labelStyle}>Duration</label>
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        {options.map(o => (
-          <div key={o.mins} onClick={() => onChange(value === o.mins ? null : o.mins)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${value === o.mins ? '#FF4D00' : '#2A2A2A'}`, background: value === o.mins ? 'rgba(255,77,0,0.15)' : '#0A0A0A', color: value === o.mins ? '#FF4D00' : '#666', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>{o.label}</div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function calcEndTime(start: string, durationMins: number): string {
-  if (!start || !durationMins) return ''
-  const [h, m] = start.split(':').map(Number)
-  const total = h * 60 + m + durationMins
-  const eh = Math.floor(total / 60) % 24
-  const em = total % 60
-  return `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`
-}
-
-function calcDuration(start: string, end: string): number | null {
-  if (!start || !end) return null
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  let diff = (eh * 60 + em) - (sh * 60 + sm)
-  if (diff <= 0) diff += 1440
-  const presets = [30, 60, 90, 120, 180, 1440]
-  return presets.includes(diff) ? diff : null
-}
 
 function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   return (
@@ -131,7 +99,6 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
   const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
-  const [duration, setDuration] = useState<number | null>(null)
   const [location, setLocation] = useState('')
   const [category, setCategory] = useState('activity')
   const [isVotable, setIsVotable] = useState(false)
@@ -160,7 +127,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
 
   function resetForm() {
     setTitle(''); setDescription(''); setNotes(''); setDate('')
-    setStartTime(''); setEndTime(''); setDuration(null); setLocation('')
+    setStartTime(''); setEndTime(''); setLocation('')
     setCategory('activity'); setIsVotable(false); setIsBooked(false); setConfirmMode('manual'); setEditItem(null)
   }
 
@@ -186,7 +153,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
   function openEdit(item: any) {
     setEditItem(item); setTitle(item.title || ''); setDescription(item.description || '')
     setNotes(item.notes || ''); setDate(item.date || ''); setStartTime(item.start_time || '')
-    setEndTime(item.end_time || ''); setDuration(calcDuration(item.start_time, item.end_time)); setLocation(item.location || '')
+    setEndTime(item.end_time || ''); setLocation(item.location || '')
     setCategory(item.category || 'activity'); setIsVotable(item.is_votable || false)
     setIsBooked(item.is_booked || false); setConfirmMode(item.confirm_mode || 'manual'); setShowAddModal(true)
   }
@@ -273,9 +240,9 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <ScrollTimePicker label="Start Time" value={startTime} onChange={v => { setStartTime(v); if (duration) setEndTime(calcEndTime(v, duration)) }} />
+              <ScrollTimePicker label="Start Time" value={startTime} onChange={setStartTime} />
+              <ScrollTimePicker label="End Time" value={endTime} onChange={setEndTime} />
             </div>
-            <DurationPicker value={duration} onChange={d => { setDuration(d); if (d && startTime) setEndTime(calcEndTime(startTime, d)); else if (!d) setEndTime('') }} />
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
@@ -1387,7 +1354,6 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   const [editDate, setEditDate] = useState('')
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
-  const [editDuration, setEditDuration] = useState<number | null>(null)
   const [editLocation, setEditLocation] = useState('')
   const [editCategory, setEditCategory] = useState('activity')
   const [editIsBooked, setEditIsBooked] = useState(false)
@@ -1455,13 +1421,13 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   function openVoteEdit(item: any) {
     setEditItem(item); setEditTitle(item.title || ''); setEditDescription(item.description || '')
     setEditNotes(item.notes || ''); setEditDate(item.date || ''); setEditStartTime(item.start_time || '')
-    setEditEndTime(item.end_time || ''); setEditDuration(calcDuration(item.start_time, item.end_time)); setEditLocation(item.location || '')
+    setEditEndTime(item.end_time || ''); setEditLocation(item.location || '')
     setEditCategory(item.category || 'activity'); setEditIsBooked(item.is_booked || false)
     setEditConfirmMode(item.confirm_mode || 'manual'); setShowEditModal(true)
   }
   function resetEditForm() {
     setEditTitle(''); setEditDescription(''); setEditNotes(''); setEditDate('')
-    setEditStartTime(''); setEditEndTime(''); setEditDuration(null); setEditLocation('')
+    setEditStartTime(''); setEditEndTime(''); setEditLocation('')
     setEditCategory('activity'); setEditIsBooked(false); setEditConfirmMode('manual'); setEditItem(null)
   }
   async function saveEdit() {
@@ -1551,9 +1517,9 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <ScrollTimePicker label="Start Time" value={editStartTime} onChange={v => { setEditStartTime(v); if (editDuration) setEditEndTime(calcEndTime(v, editDuration)) }} />
+              <ScrollTimePicker label="Start Time" value={editStartTime} onChange={setEditStartTime} />
+              <ScrollTimePicker label="End Time" value={editEndTime} onChange={setEditEndTime} />
             </div>
-            <DurationPicker value={editDuration} onChange={d => { setEditDuration(d); if (d && editStartTime) setEditEndTime(calcEndTime(editStartTime, d)); else if (!d) setEditEndTime('') }} />
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
