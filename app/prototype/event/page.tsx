@@ -17,34 +17,93 @@ function formatTime(t: string): string {
   return `${hour}:${m.toString().padStart(2, '0')} ${period}`
 }
 
-function TimePicker({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
-  let hour12 = 12, minute = 0, ampm: 'AM' | 'PM' = 'AM'
-  if (value) {
-    const [h, m] = value.split(':').map(Number)
-    minute = m
-    ampm = h >= 12 ? 'PM' : 'AM'
-    hour12 = h % 12 || 12
+function ScrollColumn({ items, selected, onChange, width }: { items: string[], selected: number, onChange: (i: number) => void, width?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const itemH = 40
+  const isScrolling = useRef(false)
+  useEffect(() => {
+    if (ref.current && !isScrolling.current) {
+      ref.current.scrollTop = selected * itemH
+    }
+  }, [selected])
+  function handleScroll() {
+    if (!ref.current) return
+    isScrolling.current = true
+    const idx = Math.round(ref.current.scrollTop / itemH)
+    if (idx >= 0 && idx < items.length && idx !== selected) onChange(idx)
+    clearTimeout((ref.current as any)._t)
+    ;(ref.current as any)._t = setTimeout(() => { isScrolling.current = false }, 150)
   }
-  function buildValue(h12: number, min: number, ap: 'AM' | 'PM') {
-    let h24 = h12 % 12
-    if (ap === 'PM') h24 += 12
-    return `${h24.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`
-  }
-  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-  const minutes = [0, 15, 30, 45]
-  const pill = (active: boolean): React.CSSProperties => ({ padding: '8px 0', borderRadius: '8px', border: `1px solid ${active ? '#FF4D00' : '#2A2A2A'}`, background: active ? 'rgba(255,77,0,0.15)' : '#0A0A0A', color: active ? '#FF4D00' : '#666', fontSize: '13px', fontWeight: 700, cursor: 'pointer', textAlign: 'center' })
   return (
-    <div style={{ flex: 1 }}>
-      <label style={labelStyle}>{label}</label>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', marginBottom: '6px' }}>
-        {hours.map(h => <div key={h} onClick={() => onChange(buildValue(h, minute, ampm))} style={pill(hour12 === h)}>{h}</div>)}
-      </div>
-      <div style={{ display: 'flex', gap: '4px' }}>
-        {minutes.map(m => <div key={m} onClick={() => onChange(buildValue(hour12, m, ampm))} style={{ ...pill(minute === m), flex: 1 }}>:{m.toString().padStart(2, '0')}</div>)}
-        <div onClick={() => onChange(buildValue(hour12, minute, ampm === 'AM' ? 'PM' : 'AM'))} style={{ ...pill(true), flex: 1, background: ampm === 'AM' ? 'rgba(0,230,118,0.12)' : 'rgba(255,77,0,0.12)', color: ampm === 'AM' ? '#00E676' : '#FF4D00', border: `1px solid ${ampm === 'AM' ? '#00E676' : '#FF4D00'}` }}>{ampm}</div>
+    <div style={{ position: 'relative', height: `${itemH * 3}px`, flex: width || 1, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: `${itemH}px`, left: 0, right: 0, height: `${itemH}px`, background: 'rgba(255,77,0,0.12)', border: '1px solid rgba(255,77,0,0.3)', borderRadius: '8px', pointerEvents: 'none', zIndex: 1 }} />
+      <div ref={ref} onScroll={handleScroll} style={{ height: '100%', overflowY: 'auto', scrollSnapType: 'y mandatory', paddingTop: `${itemH}px`, paddingBottom: `${itemH}px`, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+        {items.map((item, i) => (
+          <div key={i} onClick={() => { onChange(i); if (ref.current) ref.current.scrollTop = i * itemH }} style={{ height: `${itemH}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', scrollSnapAlign: 'start', fontSize: '16px', fontWeight: 700, color: i === selected ? '#FF4D00' : '#555', cursor: 'pointer', transition: 'color 0.15s' }}>{item}</div>
+        ))}
       </div>
     </div>
   )
+}
+
+function ScrollTimePicker({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
+  let h12 = 12, min = 0, ap = 0
+  if (value) {
+    const [h, m] = value.split(':').map(Number)
+    min = m; ap = h >= 12 ? 1 : 0; h12 = h % 12 || 12
+  }
+  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  const mins = [0, 15, 30, 45]
+  const ampms = ['AM', 'PM']
+  const hIdx = hours.indexOf(h12)
+  const mIdx = mins.indexOf(min) >= 0 ? mins.indexOf(min) : 0
+  function build(hi: number, mi: number, ai: number) {
+    let h24 = hours[hi] % 12; if (ai === 1) h24 += 12
+    return `${h24.toString().padStart(2, '0')}:${mins[mi].toString().padStart(2, '0')}`
+  }
+  return (
+    <div style={{ flex: 1 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ display: 'flex', gap: '2px', background: '#0A0A0A', borderRadius: '10px', border: '1px solid #2A2A2A', padding: '4px', overflow: 'hidden' }}>
+        <ScrollColumn items={hours.map(String)} selected={hIdx} onChange={i => onChange(build(i, mIdx, ap))} />
+        <ScrollColumn items={mins.map(m => ':' + m.toString().padStart(2, '0'))} selected={mIdx} onChange={i => onChange(build(hIdx, i, ap))} />
+        <ScrollColumn items={ampms} selected={ap} onChange={i => onChange(build(hIdx, mIdx, i))} />
+      </div>
+    </div>
+  )
+}
+
+function DurationPicker({ value, onChange }: { value: number | null, onChange: (v: number | null) => void }) {
+  const options = [{ label: '30m', mins: 30 }, { label: '1h', mins: 60 }, { label: '1.5h', mins: 90 }, { label: '2h', mins: 120 }, { label: '3h', mins: 180 }, { label: 'All day', mins: 1440 }]
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={labelStyle}>Duration</label>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        {options.map(o => (
+          <div key={o.mins} onClick={() => onChange(value === o.mins ? null : o.mins)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${value === o.mins ? '#FF4D00' : '#2A2A2A'}`, background: value === o.mins ? 'rgba(255,77,0,0.15)' : '#0A0A0A', color: value === o.mins ? '#FF4D00' : '#666', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>{o.label}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function calcEndTime(start: string, durationMins: number): string {
+  if (!start || !durationMins) return ''
+  const [h, m] = start.split(':').map(Number)
+  const total = h * 60 + m + durationMins
+  const eh = Math.floor(total / 60) % 24
+  const em = total % 60
+  return `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`
+}
+
+function calcDuration(start: string, end: string): number | null {
+  if (!start || !end) return null
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  let diff = (eh * 60 + em) - (sh * 60 + sm)
+  if (diff <= 0) diff += 1440
+  const presets = [30, 60, 90, 120, 180, 1440]
+  return presets.includes(diff) ? diff : null
 }
 
 function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
@@ -72,6 +131,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
   const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+  const [duration, setDuration] = useState<number | null>(null)
   const [location, setLocation] = useState('')
   const [category, setCategory] = useState('activity')
   const [isVotable, setIsVotable] = useState(false)
@@ -100,7 +160,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
 
   function resetForm() {
     setTitle(''); setDescription(''); setNotes(''); setDate('')
-    setStartTime(''); setEndTime(''); setLocation('')
+    setStartTime(''); setEndTime(''); setDuration(null); setLocation('')
     setCategory('activity'); setIsVotable(false); setIsBooked(false); setConfirmMode('manual'); setEditItem(null)
   }
 
@@ -126,7 +186,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
   function openEdit(item: any) {
     setEditItem(item); setTitle(item.title || ''); setDescription(item.description || '')
     setNotes(item.notes || ''); setDate(item.date || ''); setStartTime(item.start_time || '')
-    setEndTime(item.end_time || ''); setLocation(item.location || '')
+    setEndTime(item.end_time || ''); setDuration(calcDuration(item.start_time, item.end_time)); setLocation(item.location || '')
     setCategory(item.category || 'activity'); setIsVotable(item.is_votable || false)
     setIsBooked(item.is_booked || false); setConfirmMode(item.confirm_mode || 'manual'); setShowAddModal(true)
   }
@@ -211,19 +271,11 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
             <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>{editItem ? 'Edit Item' : 'Add Itinerary Item'}</h2>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={labelStyle}>Category</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {categories.map(cat => (
-                  <div key={cat.value} onClick={() => setCategory(cat.value)} style={{ padding: '8px', background: category === cat.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${category === cat.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: category === cat.value ? '#FF4D00' : '#666' }}>{cat.label}</div>
-                ))}
-              </div>
-            </div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <TimePicker label="Start Time" value={startTime} onChange={setStartTime} />
-              <TimePicker label="End Time" value={endTime} onChange={setEndTime} />
+              <ScrollTimePicker label="Start Time" value={startTime} onChange={v => { setStartTime(v); if (duration) setEndTime(calcEndTime(v, duration)) }} />
             </div>
+            <DurationPicker value={duration} onChange={d => { setDuration(d); if (d && startTime) setEndTime(calcEndTime(startTime, d)); else if (!d) setEndTime('') }} />
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
@@ -1335,6 +1387,7 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   const [editDate, setEditDate] = useState('')
   const [editStartTime, setEditStartTime] = useState('')
   const [editEndTime, setEditEndTime] = useState('')
+  const [editDuration, setEditDuration] = useState<number | null>(null)
   const [editLocation, setEditLocation] = useState('')
   const [editCategory, setEditCategory] = useState('activity')
   const [editIsBooked, setEditIsBooked] = useState(false)
@@ -1402,13 +1455,13 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   function openVoteEdit(item: any) {
     setEditItem(item); setEditTitle(item.title || ''); setEditDescription(item.description || '')
     setEditNotes(item.notes || ''); setEditDate(item.date || ''); setEditStartTime(item.start_time || '')
-    setEditEndTime(item.end_time || ''); setEditLocation(item.location || '')
+    setEditEndTime(item.end_time || ''); setEditDuration(calcDuration(item.start_time, item.end_time)); setEditLocation(item.location || '')
     setEditCategory(item.category || 'activity'); setEditIsBooked(item.is_booked || false)
     setEditConfirmMode(item.confirm_mode || 'manual'); setShowEditModal(true)
   }
   function resetEditForm() {
     setEditTitle(''); setEditDescription(''); setEditNotes(''); setEditDate('')
-    setEditStartTime(''); setEditEndTime(''); setEditLocation('')
+    setEditStartTime(''); setEditEndTime(''); setEditDuration(null); setEditLocation('')
     setEditCategory('activity'); setEditIsBooked(false); setEditConfirmMode('manual'); setEditItem(null)
   }
   async function saveEdit() {
@@ -1496,17 +1549,11 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
             <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
             <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Edit Vote Item</h2>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
-            <div style={{ marginBottom: '14px' }}>
-              <label style={labelStyle}>Category</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {categories.map(cat => <div key={cat.value} onClick={() => setEditCategory(cat.value)} style={{ padding: '8px', background: editCategory === cat.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${editCategory === cat.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: editCategory === cat.value ? '#FF4D00' : '#666' }}>{cat.label}</div>)}
-              </div>
-            </div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <TimePicker label="Start Time" value={editStartTime} onChange={setEditStartTime} />
-              <TimePicker label="End Time" value={editEndTime} onChange={setEditEndTime} />
+              <ScrollTimePicker label="Start Time" value={editStartTime} onChange={v => { setEditStartTime(v); if (editDuration) setEditEndTime(calcEndTime(v, editDuration)) }} />
             </div>
+            <DurationPicker value={editDuration} onChange={d => { setEditDuration(d); if (d && editStartTime) setEditEndTime(calcEndTime(editStartTime, d)); else if (!d) setEditEndTime('') }} />
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
