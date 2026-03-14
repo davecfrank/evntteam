@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
 
 export default function Dashboard() {
@@ -15,11 +15,14 @@ export default function Dashboard() {
   const [eventTime, setEventTime] = useState('')
   const [eventType, setEventType] = useState('Birthday')
   const [invitePermission, setInvitePermission] = useState('admin_only')
-  const [requiresFlights, setRequiresFlights] = useState(false)
-  const [requiresLodging, setRequiresLodging] = useState(false)
+  const [requiresTravel, setRequiresTravel] = useState(false)
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
+  const [votingEnabled, setVotingEnabled] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [saving, setSaving] = useState(false)
+  const dateRef = useRef<HTMLInputElement>(null)
+  const endDateRef = useRef<HTMLInputElement>(null)
 
   const eventTypes = [
     { label: 'Birthday', emoji: '🎂' },
@@ -54,11 +57,16 @@ export default function Dashboard() {
       .from('events')
       .insert({
         name, destination, dates,
+        end_date: endDate || null,
+        event_time: eventTime || null,
         event_type: eventType,
         invite_permission: invitePermission,
         owner_id: user.id,
-        requires_flights: requiresFlights,
-        requires_lodging: requiresLodging,
+        requires_flights: requiresTravel,
+        requires_lodging: requiresTravel,
+        requires_rental_cars: requiresTravel,
+        payments_enabled: paymentsEnabled,
+        voting_enabled: votingEnabled,
       })
       .select()
       .single()
@@ -67,7 +75,7 @@ export default function Dashboard() {
       setShowModal(false)
       setName(''); setDestination(''); setDates(''); setEndDate('')
       setEventTime(''); setInvitePermission('admin_only')
-      setRequiresFlights(false); setRequiresLodging(false)
+      setRequiresTravel(false); setPaymentsEnabled(true); setVotingEnabled(true)
     }
     setSaving(false)
   }
@@ -157,14 +165,9 @@ export default function Dashboard() {
                         ⏳ {getCountdown(event.dates)}
                       </div>
                     )}
-                    {event.requires_flights && (
+                    {(event.requires_flights || event.requires_lodging) && (
                       <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>
-                        ✈️ Flights
-                      </div>
-                    )}
-                    {event.requires_lodging && (
-                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(180,100,255,0.1)', color: '#B464FF' }}>
-                        🏨 Lodging
+                        🧳 Travel
                       </div>
                     )}
                   </div>
@@ -212,11 +215,11 @@ export default function Dashboard() {
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Start Date</label>
-                <input type="date" value={dates} onChange={e => setDates(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+                <input ref={dateRef} type="date" value={dates} onChange={e => setDates(e.target.value)} onClick={() => { try { dateRef.current?.showPicker() } catch {} }} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }} />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>End Date</label>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+                <input ref={endDateRef} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} onClick={() => { try { endDateRef.current?.showPicker() } catch {} }} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark', cursor: 'pointer' }} />
               </div>
             </div>
 
@@ -253,19 +256,11 @@ export default function Dashboard() {
   </div>
 </div>
 
-<div style={{ marginBottom: '20px' }}>
-  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>Travel & Stay</label>
-  <div style={{ display: 'flex', gap: '8px' }}>
-    {[
-      { value: 'flights', label: '✈️ Flights', desc: 'Track flights', state: requiresFlights, setter: setRequiresFlights, color: '100, 180, 255' },
-      { value: 'lodging', label: '🏨 Lodging', desc: 'Track stays', state: requiresLodging, setter: setRequiresLodging, color: '180, 100, 255' },
-    ].map(option => (
-      <div key={option.value} onClick={() => option.setter(!option.state)} style={{ flex: 1, padding: '10px 8px', background: option.state ? `rgba(${option.color}, 0.15)` : '#0A0A0A', border: `1px solid ${option.state ? `rgb(${option.color})` : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
-        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
-        <div style={{ fontSize: '10px', color: option.state ? `rgb(${option.color})` : '#666', fontWeight: 600 }}>{option.desc}</div>
-      </div>
-    ))}
-  </div>
+<div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+  <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block' }}>Event Features</label>
+  <Toggle value={requiresTravel} onChange={setRequiresTravel} label="🧳 Is travel required?" desc="Enable flights, lodging & rental car tracking" color="100, 180, 255" />
+  <Toggle value={paymentsEnabled} onChange={setPaymentsEnabled} label="💰 Enable payment tracking?" desc="Split bills and track group expenses" color="0, 230, 118" />
+  <Toggle value={votingEnabled} onChange={setVotingEnabled} label="🗳 Enable voting for itinerary items?" desc="Let members vote on activities" color="255, 214, 0" />
 </div>
 
             <button onClick={createEvent} disabled={saving || !name.trim()} style={{ width: '100%', background: saving || !name.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !name.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !name.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>

@@ -88,7 +88,7 @@ function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   )
 }
 
-function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract }: { eventId: string, user: any, event: any, members: any[], setActiveTab: (tab: string) => void, canInteract: boolean }) {
+function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract, votingEnabled }: { eventId: string, user: any, event: any, members: any[], setActiveTab: (tab: string) => void, canInteract: boolean, votingEnabled: boolean }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -176,7 +176,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>{confirmedItems.length} {confirmedItems.length === 1 ? 'Item' : 'Items'}</div>
         {canInteract && <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Add Item</button>}
       </div>
-      {pendingVoteCount > 0 && (
+      {votingEnabled && pendingVoteCount > 0 && (
         <div onClick={() => setActiveTab('vote')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', marginBottom: '16px', background: 'rgba(255,214,0,0.08)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: '10px', cursor: 'pointer' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD600' }}>🗳 {pendingVoteCount} {pendingVoteCount === 1 ? 'item' : 'items'} up for vote</div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD600' }}>→</div>
@@ -248,7 +248,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <ToggleRow value={isVotable} onChange={(val: boolean) => { setIsVotable(val); if (val) setIsBooked(false); if (!val) setConfirmMode('manual'); }} label="🗳 Open to Group Vote" desc="Let members vote on this item" color="#FFD600" bg="rgba(255,214,0,0.08)" />
+              {votingEnabled && <ToggleRow value={isVotable} onChange={(val: boolean) => { setIsVotable(val); if (val) setIsBooked(false); if (!val) setConfirmMode('manual'); }} label="🗳 Open to Group Vote" desc="Let members vote on this item" color="#FFD600" bg="rgba(255,214,0,0.08)" />}
               {isVotable && (
                 <div style={{ marginLeft: '16px', display: 'flex', gap: '8px' }}>
                   <div onClick={() => setConfirmMode('auto')} style={{ flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', background: confirmMode === 'auto' ? 'rgba(255,214,0,0.12)' : '#0A0A0A', border: `1px solid ${confirmMode === 'auto' ? '#FFD600' : '#2A2A2A'}` }}>
@@ -2079,6 +2079,20 @@ function EventPage() {
   const [rsvpExpanded, setRsvpExpanded] = useState<string | null>(null)
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
   const [isDesktop, setIsDesktop] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDestination, setEditDestination] = useState('')
+  const [editDates, setEditDates] = useState('')
+  const [editEndDate, setEditEndDate] = useState('')
+  const [editEventTime, setEditEventTime] = useState('')
+  const [editEventType, setEditEventType] = useState('Birthday')
+  const [editInvitePermission, setEditInvitePermission] = useState('admin_only')
+  const [editRequiresTravel, setEditRequiresTravel] = useState(false)
+  const [editPaymentsEnabled, setEditPaymentsEnabled] = useState(true)
+  const [editVotingEnabled, setEditVotingEnabled] = useState(true)
+  const [editSaving, setEditSaving] = useState(false)
+  const editDateRef = useRef<HTMLInputElement>(null)
+  const editEndDateRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 768)
@@ -2235,6 +2249,54 @@ function EventPage() {
     if (!error) setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
   }
 
+  const eventTypes = [
+    { label: 'Birthday', emoji: '🎂' },
+    { label: 'Bachelor / Bachelorette', emoji: '🎉' },
+    { label: 'Vacation', emoji: '☀️' },
+    { label: 'Wedding', emoji: '💒' },
+    { label: 'Business', emoji: '💼' },
+    { label: 'Other', emoji: '✨' },
+  ]
+
+  function openEditModal() {
+    setEditName(event?.name || '')
+    setEditDestination(event?.destination || '')
+    setEditDates(event?.dates || '')
+    setEditEndDate(event?.end_date || '')
+    setEditEventTime(event?.event_time || '')
+    setEditEventType(event?.event_type || 'Birthday')
+    setEditInvitePermission(event?.invite_permission || 'admin_only')
+    setEditRequiresTravel(!!(event?.requires_flights || event?.requires_lodging))
+    setEditPaymentsEnabled(event?.payments_enabled !== false)
+    setEditVotingEnabled(event?.voting_enabled !== false)
+    setShowEditModal(true)
+  }
+
+  async function saveEventEdit() {
+    if (!editName.trim()) return
+    setEditSaving(true)
+    const payload = {
+      name: editName,
+      destination: editDestination,
+      dates: editDates,
+      end_date: editEndDate || null,
+      event_time: editEventTime || null,
+      event_type: editEventType,
+      invite_permission: editInvitePermission,
+      requires_flights: editRequiresTravel,
+      requires_lodging: editRequiresTravel,
+      requires_rental_cars: editRequiresTravel,
+      payments_enabled: editPaymentsEnabled,
+      voting_enabled: editVotingEnabled,
+    }
+    const { data, error } = await supabase.from('events').update(payload).eq('id', eventId).select().single()
+    if (!error && data) {
+      setEvent(data)
+      setShowEditModal(false)
+    }
+    setEditSaving(false)
+  }
+
   function shareViaText() {
     const message = `Hey! You're invited to ${event?.name}. Join here: https://evnt.team/invite/${eventId}`
     window.open(`sms:?body=${encodeURIComponent(message)}`)
@@ -2249,8 +2311,8 @@ function EventPage() {
     { id: 'overview', icon: '🏠', label: 'Overview' },
     { id: 'itinerary', icon: '🗓', label: 'Itinerary' },
     ...((event?.requires_flights || event?.requires_lodging) ? [{ id: 'travel', icon: '🧳', label: 'Travel' }] : []),
-    { id: 'payments', icon: '💰', label: 'Payments' },
-    { id: 'vote', icon: '🗳', label: 'Vote' },
+    ...(event?.payments_enabled !== false ? [{ id: 'payments', icon: '💰', label: 'Payments' }] : []),
+    ...(event?.voting_enabled !== false ? [{ id: 'vote', icon: '🗳', label: 'Vote' }] : []),
     { id: 'chat', icon: '💬', label: 'Chat' },
     { id: 'photos', icon: '📸', label: 'Photos' },
   ]
@@ -2271,7 +2333,11 @@ function EventPage() {
         <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>{event?.name}</h1>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
           {event?.destination && <div style={{ fontSize: '13px', color: '#888' }}>📍 {event.destination}</div>}
-          {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {event.dates}</div>}
+          {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {(() => {
+            const fmt = (d: string) => { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return d } }
+            return event.end_date ? `${fmt(event.dates)} – ${fmt(event.end_date)}` : fmt(event.dates)
+          })()}</div>}
+          {event?.event_time && <div style={{ fontSize: '13px', color: '#888' }}>🕐 {formatTime(event.event_time)}</div>}
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {getCountdown(event?.dates) && <div style={{ fontSize: '13px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>⏳ {getCountdown(event?.dates)}</div>}
@@ -2360,6 +2426,18 @@ function EventPage() {
               )}
               {members.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>No members yet — invite your crew!</div>}
             </div>
+            {(isHost || isCohost) && (
+              <div onClick={openEditModal} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', marginBottom: '16px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '18px' }}>✏️</span>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700 }}>Edit Event Details</div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>Name, dates, features & more</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '14px', color: '#666' }}>→</div>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {tabs.filter(t => t.id !== 'overview').map(action => (
                 <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer' }}>
@@ -2371,7 +2449,7 @@ function EventPage() {
           </div>
         )}
 
-        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} members={members} setActiveTab={setActiveTab} canInteract={canInteract} />}
+        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} members={members} setActiveTab={setActiveTab} canInteract={canInteract} votingEnabled={event?.voting_enabled !== false} />}
         {activeTab === 'travel' && <TravelTab eventId={eventId!} user={user} members={members} getName={getName} isDesktop={isDesktop} />}
         {activeTab === 'payments' && <PaymentsTab eventId={eventId!} user={user} members={members} event={event} getName={getName} isDesktop={isDesktop} canInteract={canInteract} />}
         {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} canInteract={canInteract} />}
@@ -2415,6 +2493,81 @@ function EventPage() {
               {inviting ? 'Sending...' : 'Send Invite →'}
             </button>
             <button onClick={() => setShowInviteModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: isDesktop ? '16px' : '24px 24px 0 0', padding: '28px 24px 40px', width: isDesktop ? '480px' : '100%', border: '1px solid #2A2A2A', boxSizing: 'border-box', maxHeight: '90vh', overflowY: 'auto' }}>
+            {!isDesktop && <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />}
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Edit Event ✏️</h2>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Event Name *</label>
+              <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Event name" style={inputStyle} />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Destination</label>
+              <input value={editDestination} onChange={e => setEditDestination(e.target.value)} placeholder="Nashville, TN" style={inputStyle} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Start Date</label>
+                <input ref={editDateRef} type="date" value={editDates} onChange={e => setEditDates(e.target.value)} onClick={() => { try { editDateRef.current?.showPicker() } catch {} }} style={{ ...inputStyle, colorScheme: 'dark', cursor: 'pointer' } as any} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>End Date</label>
+                <input ref={editEndDateRef} type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} onClick={() => { try { editEndDateRef.current?.showPicker() } catch {} }} style={{ ...inputStyle, colorScheme: 'dark', cursor: 'pointer' } as any} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Event Time</label>
+              <input type="time" value={editEventTime} onChange={e => setEditEventTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ ...labelStyle, marginBottom: '10px' }}>Event Type</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {eventTypes.map(type => (
+                  <div key={type.label} onClick={() => setEditEventType(type.label)} style={{ padding: '10px', background: editEventType === type.label ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${editEventType === type.label ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', marginBottom: '4px' }}>{type.emoji}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: editEventType === type.label ? '#FF4D00' : '#666' }}>{type.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ ...labelStyle, marginBottom: '10px' }}>Who Can Invite?</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { value: 'admin_only', label: '👑 Host', desc: 'Only you' },
+                  { value: 'cohost', label: '⭐ Co-hosts', desc: 'Host + co-hosts' },
+                  { value: 'anyone', label: '👥 Anyone', desc: 'All members' },
+                ].map(option => (
+                  <div key={option.value} onClick={() => setEditInvitePermission(option.value)} style={{ flex: 1, padding: '10px 8px', background: editInvitePermission === option.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${editInvitePermission === option.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: '16px', marginBottom: '4px' }}>{option.label}</div>
+                    <div style={{ fontSize: '10px', color: editInvitePermission === option.value ? '#FF4D00' : '#666', fontWeight: 600 }}>{option.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <label style={labelStyle}>Event Features</label>
+              <ToggleRow value={editRequiresTravel} onChange={setEditRequiresTravel} label="🧳 Is travel required?" desc="Enable flights, lodging & rental car tracking" color="rgb(100,180,255)" bg="rgba(100,180,255,0.08)" />
+              <ToggleRow value={editPaymentsEnabled} onChange={setEditPaymentsEnabled} label="💰 Enable payment tracking?" desc="Split bills and track group expenses" color="#00E676" bg="rgba(0,230,118,0.08)" />
+              <ToggleRow value={editVotingEnabled} onChange={setEditVotingEnabled} label="🗳 Enable voting?" desc="Let members vote on activities" color="#FFD600" bg="rgba(255,214,0,0.08)" />
+            </div>
+
+            <button onClick={saveEventEdit} disabled={editSaving || !editName.trim()} style={{ width: '100%', background: editSaving || !editName.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: editSaving || !editName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: editSaving || !editName.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
+              {editSaving ? 'Saving...' : 'Save Changes →'}
+            </button>
+            <button onClick={() => setShowEditModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
           </div>
         </div>
       )}
