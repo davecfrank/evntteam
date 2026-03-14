@@ -2099,6 +2099,7 @@ function EventPage() {
   const [editRequiresTravel, setEditRequiresTravel] = useState(false)
   const [editPaymentsEnabled, setEditPaymentsEnabled] = useState(true)
   const [editVotingEnabled, setEditVotingEnabled] = useState(true)
+  const [editDescription, setEditDescription] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const editDateRef = useRef<HTMLInputElement>(null)
   const editEndDateRef = useRef<HTMLInputElement>(null)
@@ -2303,6 +2304,7 @@ function EventPage() {
 
   function openEditModal() {
     setEditName(event?.name || '')
+    setEditDescription(event?.description || '')
     setEditDestination(event?.destination || '')
     setEditDates(event?.dates || '')
     setEditEndDate(event?.end_date || '')
@@ -2324,6 +2326,7 @@ function EventPage() {
     // Core fields that always exist
     const payload: Record<string, any> = {
       name: editName,
+      description: editDescription || null,
       destination: editDestination,
       dates: editDates,
       event_type: editEventType,
@@ -2388,6 +2391,7 @@ function EventPage() {
           <h1 style={{ fontSize: '28px', fontWeight: 900, margin: 0 }}>{event?.name}</h1>
           {(isHost || isCohost) && <button onClick={openEditModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)', whiteSpace: 'nowrap' }}>Edit Event</button>}
         </div>
+        {event?.description && <div style={{ fontSize: '14px', color: '#999', lineHeight: 1.5, marginBottom: '12px', whiteSpace: 'pre-wrap' }}>{event.description}</div>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
           {event?.destination && <div style={{ fontSize: '13px', color: '#888' }}>📍 {event.destination}</div>}
           {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {(() => {
@@ -2613,6 +2617,11 @@ function EventPage() {
             <div style={{ marginBottom: '14px' }}>
               <label style={labelStyle}>Event Name *</label>
               <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Event name" style={inputStyle} />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Description</label>
+              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Tell your guests what this event is about..." rows={3} style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', fontFamily: 'inherit' }} />
             </div>
 
             <div style={{ marginBottom: '14px' }}>

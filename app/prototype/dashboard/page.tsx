@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [destination, setDestination] = useState('')
   const [dates, setDates] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -56,7 +57,7 @@ export default function Dashboard() {
     const { data, error } = await supabase
       .from('events')
       .insert({
-        name, destination, dates,
+        name, description: description || null, destination, dates,
         end_date: endDate || null,
         event_time: eventTime || null,
         event_type: eventType,
@@ -73,7 +74,7 @@ export default function Dashboard() {
     if (!error && data) {
       setEvents(prev => [data, ...prev])
       setShowModal(false)
-      setName(''); setDestination(''); setDates(''); setEndDate('')
+      setName(''); setDescription(''); setDestination(''); setDates(''); setEndDate('')
       setEventTime(''); setInvitePermission('admin_only')
       setRequiresTravel(false); setPaymentsEnabled(true); setVotingEnabled(true)
     }
@@ -205,6 +206,11 @@ export default function Dashboard() {
             <div style={{ marginBottom: '14px' }}>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Event Name *</label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="Mike's 30th Birthday" style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Description</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell your guests what this event is about..." rows={3} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', resize: 'vertical', minHeight: '70px', fontFamily: 'inherit' }} />
             </div>
 
             <div style={{ marginBottom: '14px' }}>
