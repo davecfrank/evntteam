@@ -9,6 +9,44 @@ const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', 
 const PHOTO_REACTIONS = ['❤️', '😂', '🔥', '😍', '👏', '🤩']
 const COMMENT_REACTIONS = ['👍', '👎', '🔥', '😂', '❤️', '😮']
 
+function formatTime(t: string): string {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const period = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${m.toString().padStart(2, '0')} ${period}`
+}
+
+function TimePicker({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
+  let hour12 = 12, minute = 0, ampm: 'AM' | 'PM' = 'AM'
+  if (value) {
+    const [h, m] = value.split(':').map(Number)
+    minute = m
+    ampm = h >= 12 ? 'PM' : 'AM'
+    hour12 = h % 12 || 12
+  }
+  function buildValue(h12: number, min: number, ap: 'AM' | 'PM') {
+    let h24 = h12 % 12
+    if (ap === 'PM') h24 += 12
+    return `${h24.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`
+  }
+  const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  const minutes = [0, 15, 30, 45]
+  const pill = (active: boolean): React.CSSProperties => ({ padding: '8px 0', borderRadius: '8px', border: `1px solid ${active ? '#FF4D00' : '#2A2A2A'}`, background: active ? 'rgba(255,77,0,0.15)' : '#0A0A0A', color: active ? '#FF4D00' : '#666', fontSize: '13px', fontWeight: 700, cursor: 'pointer', textAlign: 'center' })
+  return (
+    <div style={{ flex: 1 }}>
+      <label style={labelStyle}>{label}</label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', marginBottom: '6px' }}>
+        {hours.map(h => <div key={h} onClick={() => onChange(buildValue(h, minute, ampm))} style={pill(hour12 === h)}>{h}</div>)}
+      </div>
+      <div style={{ display: 'flex', gap: '4px' }}>
+        {minutes.map(m => <div key={m} onClick={() => onChange(buildValue(hour12, m, ampm))} style={{ ...pill(minute === m), flex: 1 }}>:{m.toString().padStart(2, '0')}</div>)}
+        <div onClick={() => onChange(buildValue(hour12, minute, ampm === 'AM' ? 'PM' : 'AM'))} style={{ ...pill(true), flex: 1, background: ampm === 'AM' ? 'rgba(0,230,118,0.12)' : 'rgba(255,77,0,0.12)', color: ampm === 'AM' ? '#00E676' : '#FF4D00', border: `1px solid ${ampm === 'AM' ? '#00E676' : '#FF4D00'}` }}>{ampm}</div>
+      </div>
+    </div>
+  )
+}
+
 function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   return (
     <div onClick={() => onChange(!value)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: value ? bg : '#0A0A0A', border: `1px solid ${value ? color : '#2A2A2A'}`, borderRadius: '10px', cursor: 'pointer' }}>
@@ -141,7 +179,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
                       {item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
                     </div>
                     <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
+                      {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
                       {item.location && <span>📍 {item.location}</span>}
                     </div>
                   </div>
@@ -183,8 +221,8 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
             </div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Start Time</label><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>End Time</label><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+              <TimePicker label="Start Time" value={startTime} onChange={setStartTime} />
+              <TimePicker label="End Time" value={endTime} onChange={setEndTime} />
             </div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={location} onChange={e => setLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
@@ -1289,6 +1327,21 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
   const canConfirm = isHost || isCohost
 
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editItem, setEditItem] = useState<any>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editStartTime, setEditStartTime] = useState('')
+  const [editEndTime, setEditEndTime] = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editCategory, setEditCategory] = useState('activity')
+  const [editIsBooked, setEditIsBooked] = useState(false)
+  const [editConfirmMode, setEditConfirmMode] = useState<'auto' | 'manual'>('manual')
+  const [saving, setSaving] = useState(false)
+  const categories = [{ value: 'activity', label: '🎯 Activity' }, { value: 'food', label: '🍽 Food' }, { value: 'transport', label: '🚗 Transport' }, { value: 'lodging', label: '🏨 Lodging' }, { value: 'flight', label: '✈️ Flight' }, { value: 'other', label: '✨ Other' }]
+
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from('itinerary_items').select('*').eq('event_id', eventId).eq('is_votable', true).order('date', { ascending: true })
@@ -1346,6 +1399,35 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
     }
   }
 
+  function openVoteEdit(item: any) {
+    setEditItem(item); setEditTitle(item.title || ''); setEditDescription(item.description || '')
+    setEditNotes(item.notes || ''); setEditDate(item.date || ''); setEditStartTime(item.start_time || '')
+    setEditEndTime(item.end_time || ''); setEditLocation(item.location || '')
+    setEditCategory(item.category || 'activity'); setEditIsBooked(item.is_booked || false)
+    setEditConfirmMode(item.confirm_mode || 'manual'); setShowEditModal(true)
+  }
+  function resetEditForm() {
+    setEditTitle(''); setEditDescription(''); setEditNotes(''); setEditDate('')
+    setEditStartTime(''); setEditEndTime(''); setEditLocation('')
+    setEditCategory('activity'); setEditIsBooked(false); setEditConfirmMode('manual'); setEditItem(null)
+  }
+  async function saveEdit() {
+    if (!editTitle.trim() || !editItem) return
+    setSaving(true)
+    const payload = { title: editTitle, description: editDescription, notes: editNotes, date: editDate, start_time: editStartTime, end_time: editEndTime, location: editLocation, category: editCategory, is_booked: editIsBooked, is_votable: !editIsBooked, confirm_mode: editConfirmMode }
+    const { data } = await supabase.from('itinerary_items').update(payload).eq('id', editItem.id).select().single()
+    if (data) {
+      if (data.is_booked) { setItems(prev => prev.filter(i => i.id !== editItem.id)) }
+      else { setItems(prev => prev.map(i => i.id === editItem.id ? data : i)) }
+    }
+    resetEditForm(); setShowEditModal(false); setSaving(false)
+  }
+  async function deleteVoteItem(id: string) {
+    await supabase.from('itinerary_items').delete().eq('id', id)
+    setItems(prev => prev.filter(i => i.id !== id))
+    resetEditForm(); setShowEditModal(false)
+  }
+
   const getCategoryEmoji = (cat: string) => ({ activity: '🎯', food: '🍽', transport: '🚗', lodging: '🏨', flight: '✈️', other: '✨' } as any)[cat] || '✨'
 
   if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
@@ -1383,7 +1465,7 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
               </div>
               <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {item.date && <span>📅 {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
+                {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
                 {item.location && <span>📍 {item.location}</span>}
               </div>
               {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>{item.description}</div>}
@@ -1396,6 +1478,7 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
                 {ups} Yes · {downs} No · {totalVotes}/{memberCount} voted
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {canConfirm && <button onClick={() => openVoteEdit(item)} style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: '#0A0A0A', color: '#F0F0F0', transition: 'background 0.2s' }}>✏️</button>}
                 {canConfirm && (item.confirm_mode || 'manual') === 'manual' && totalVotes > 0 && (
                   <button onClick={() => confirmItem(item.id)} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: 'rgba(0,230,118,0.2)', color: '#00E676', transition: 'background 0.2s' }}>Confirm ✓</button>
                 )}
@@ -1406,6 +1489,47 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
           </div>
         )
       })}
+
+      {showEditModal && editItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Edit Vote Item</h2>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Title *</label><input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Dinner at The Palm" style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Category</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {categories.map(cat => <div key={cat.value} onClick={() => setEditCategory(cat.value)} style={{ padding: '8px', background: editCategory === cat.value ? 'rgba(255,77,0,0.15)' : '#0A0A0A', border: `1px solid ${editCategory === cat.value ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: editCategory === cat.value ? '#FF4D00' : '#666' }}>{cat.label}</div>)}
+              </div>
+            </div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Date (optional)</label><input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+              <TimePicker label="Start Time" value={editStartTime} onChange={setEditStartTime} />
+              <TimePicker label="End Time" value={editEndTime} onChange={setEditEndTime} />
+            </div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Location (optional)</label><input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="123 Main St" style={inputStyle} /></div>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Confirm Mode</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div onClick={() => setEditConfirmMode('auto')} style={{ flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', background: editConfirmMode === 'auto' ? 'rgba(255,214,0,0.12)' : '#0A0A0A', border: `1px solid ${editConfirmMode === 'auto' ? '#FFD600' : '#2A2A2A'}` }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: editConfirmMode === 'auto' ? '#FFD600' : '#666' }}>Auto-confirm</div>
+                  <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>Confirms at majority vote</div>
+                </div>
+                <div onClick={() => setEditConfirmMode('manual')} style={{ flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', background: editConfirmMode === 'manual' ? 'rgba(255,214,0,0.12)' : '#0A0A0A', border: `1px solid ${editConfirmMode === 'manual' ? '#FFD600' : '#2A2A2A'}` }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: editConfirmMode === 'manual' ? '#FFD600' : '#666' }}>Manual confirm</div>
+                  <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>Host confirms manually</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}><ToggleRow value={editIsBooked} onChange={(val: boolean) => setEditIsBooked(val)} label="✅ Mark as Booked" desc="Confirm this item and move to itinerary" color="#00E676" bg="rgba(0,230,118,0.08)" /></div>
+            <button onClick={saveEdit} disabled={saving || !editTitle.trim()} style={{ width: '100%', background: saving || !editTitle.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !editTitle.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !editTitle.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>{saving ? 'Saving...' : 'Save Changes →'}</button>
+            <button onClick={() => deleteVoteItem(editItem.id)} style={{ width: '100%', background: 'none', border: '1px solid rgba(255,77,0,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '12px' }}>🗑 Delete Item</button>
+            <button onClick={() => { setShowEditModal(false); resetEditForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
