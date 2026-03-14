@@ -88,7 +88,7 @@ function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   )
 }
 
-function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId: string, user: any, event: any, members: any[], setActiveTab: (tab: string) => void }) {
+function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract }: { eventId: string, user: any, event: any, members: any[], setActiveTab: (tab: string) => void, canInteract: boolean }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -174,7 +174,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>{confirmedItems.length} {confirmedItems.length === 1 ? 'Item' : 'Items'}</div>
-        <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Add Item</button>
+        {canInteract && <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Add Item</button>}
       </div>
       {pendingVoteCount > 0 && (
         <div onClick={() => setActiveTab('vote')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', marginBottom: '16px', background: 'rgba(255,214,0,0.08)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: '10px', cursor: 'pointer' }}>
@@ -187,7 +187,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗓</div>
           <div style={{ fontWeight: 700, marginBottom: '8px' }}>No itinerary items yet</div>
           <div style={{ fontSize: '13px', marginBottom: '16px' }}>Add activities, flights, lodging and more</div>
-          <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(255, 77, 0, 0.35)' }}>Add First Item →</button>
+          {canInteract ? <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(255, 77, 0, 0.35)' }}>Add First Item →</button> : <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>RSVP &quot;Going&quot; to add items</div>}
         </div>
       ) : (
         Object.entries(grouped).map(([date, dateItems]: any) => (
@@ -222,10 +222,10 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
                         <div style={{ fontSize: '13px', color: '#888' }}>{item.notes}</div>
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    {canInteract && <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => openEdit(item)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>✏️ Edit</button>
                       <button onClick={() => deleteItem(item.id)} style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>🗑 Delete</button>
-                    </div>
+                    </div>}
                   </div>
                 )}
               </div>
@@ -758,7 +758,7 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
 }
 
 
-function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { eventId: string, user: any, members: any[], event: any, getName: (e: string) => string, isDesktop: boolean }) {
+function PaymentsTab({ eventId, user, members, event, getName, isDesktop, canInteract }: { eventId: string, user: any, members: any[], event: any, getName: (e: string) => string, isDesktop: boolean, canInteract: boolean }) {
   const [bills, setBills] = useState<any[]>([])
   const [splits, setSplits] = useState<Record<string, any[]>>({})
   const [loading, setLoading] = useState(true)
@@ -945,9 +945,9 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
       </div>
 
       {/* Add Bill Button */}
-      <button onClick={openAddModal} style={{ width: '100%', background: 'rgba(255,77,0,0.1)', border: '1px dashed #FF4D00', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+      {canInteract && <button onClick={openAddModal} style={{ width: '100%', background: 'rgba(255,77,0,0.1)', border: '1px dashed #FF4D00', borderRadius: '12px', padding: '16px', fontSize: '15px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
         + Add Bill
-      </button>
+      </button>}
 
       {/* Bills List */}
       {bills.length === 0 ? (
@@ -955,7 +955,7 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
           <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No bills yet</div>
           <div style={{ color: '#666', fontSize: '14px', marginBottom: '24px' }}>Add a bill to start tracking<br />group expenses</div>
-          <button onClick={openAddModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px 28px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>+ Add First Bill →</button>
+          {canInteract ? <button onClick={openAddModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px 28px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>+ Add First Bill →</button> : <div style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>RSVP &quot;Going&quot; to add bills</div>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1077,7 +1077,7 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop }: { ev
   )
 }
 
-function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string, isDesktop: boolean }) {
+function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop, canInteract }: { eventId: string, user: any, members: any[], flights: any[], lodgings: any[], getName: (e: string) => string, isDesktop: boolean, canInteract: boolean }) {
   const [groups, setGroups] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -1271,10 +1271,16 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop
             <span onClick={() => setReplyTo(null)} style={{ cursor: 'pointer', fontSize: '14px' }}>✕</span>
           </div>
         )}
+        {canInteract ? (
         <div style={{ display: 'flex', gap: '8px' }}>
           <input ref={chatInputRef} value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }} placeholder={replyTo ? 'Reply...' : 'Message...'} style={{ flex: 1, background: '#161616', border: '1px solid #2A2A2A', borderRadius: '24px', padding: '12px 16px', fontSize: '14px', color: '#fff', outline: 'none' }} />
           <button onClick={sendMessage} disabled={sending || !newMessage.trim()} style={{ background: newMessage.trim() ? '#FF4D00' : '#333', border: 'none', borderRadius: '50%', width: '44px', height: '44px', fontSize: '18px', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>↑</button>
         </div>
+        ) : (
+        <div style={{ textAlign: 'center', padding: '12px', background: '#161616', borderRadius: '12px', border: '1px solid #2A2A2A' }}>
+          <div style={{ fontSize: '12px', color: '#666', fontWeight: 600 }}>RSVP &quot;Going&quot; to send messages</div>
+        </div>
+        )}
       </div>
     )
   }
@@ -1285,7 +1291,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>💬 Chat Groups</div>
-        <button onClick={() => setShowCreateModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ New Group</button>
+        {canInteract && <button onClick={() => setShowCreateModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ New Group</button>}
       </div>
       {suggestions.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
@@ -1338,7 +1344,7 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop
   )
 }
 
-function VoteTab({ eventId, user, members, event }: { eventId: string, user: any, members: any[], event: any }) {
+function VoteTab({ eventId, user, members, event, canInteract }: { eventId: string, user: any, members: any[], event: any, canInteract: boolean }) {
   const [items, setItems] = useState<any[]>([])
   const [votes, setVotes] = useState<Record<string, any[]>>({})
   const [loading, setLoading] = useState(true)
@@ -1502,8 +1508,10 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
                 {canConfirm && (item.confirm_mode || 'manual') === 'manual' && totalVotes > 0 && (
                   <button onClick={() => confirmItem(item.id)} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: 'rgba(0,230,118,0.2)', color: '#00E676', transition: 'background 0.2s' }}>Confirm ✓</button>
                 )}
+                {canInteract ? (<>
                 <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
                 <button onClick={() => castVote(item.id, 'up')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'up' ? '#00E676' : 'rgba(0,230,118,0.15)', transition: 'background 0.2s' }}>👍</button>
+                </>) : <div style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>RSVP to vote</div>}
               </div>
             </div>
           </div>
@@ -1548,7 +1556,7 @@ function VoteTab({ eventId, user, members, event }: { eventId: string, user: any
   )
 }
 
-function PhotosTab({ eventId, user, event, members, getName }: { eventId: string, user: any, event: any, members: any[], getName: (e: string) => string }) {
+function PhotosTab({ eventId, user, event, members, getName, canInteract }: { eventId: string, user: any, event: any, members: any[], getName: (e: string) => string, canInteract: boolean }) {
   const [photos, setPhotos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showUpload, setShowUpload] = useState(false)
@@ -1852,10 +1860,16 @@ function PhotosTab({ eventId, user, event, members, getName }: { eventId: string
   return (
     <div>
       {/* Upload Button */}
+      {canInteract ? (<>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} style={{ display: 'none' }} />
       <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '20px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
         📸 Upload Photos
       </button>
+      </>) : (
+      <div style={{ textAlign: 'center', padding: '14px', background: '#161616', borderRadius: '12px', border: '1px solid #2A2A2A', marginBottom: '20px' }}>
+        <div style={{ fontSize: '13px', color: '#666', fontWeight: 600 }}>RSVP &quot;Going&quot; to upload photos</div>
+      </div>
+      )}
 
       {/* Photo Grid */}
       {photos.length === 0 ? (
@@ -2014,10 +2028,14 @@ function PhotosTab({ eventId, user, event, members, getName }: { eventId: string
                 )}
 
                 {/* Comment input */}
+                {canInteract ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input ref={commentInputRef} value={newComment} onChange={e => handleCommentInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment(currentPhoto.id) } }} placeholder="Add a comment... use @ to mention" style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '10px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' as const }} />
                   <button onClick={() => addComment(currentPhoto.id)} disabled={sendingComment || !newComment.trim()} style={{ background: sendingComment || !newComment.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 16px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: sendingComment || !newComment.trim() ? 'not-allowed' : 'pointer' }}>→</button>
                 </div>
+                ) : (
+                <div style={{ textAlign: 'center', padding: '10px', fontSize: '12px', color: '#666', fontWeight: 600 }}>RSVP &quot;Going&quot; to comment</div>
+                )}
               </div>
             )}
           </div>
@@ -2058,6 +2076,7 @@ function EventPage() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [inviteRole, setInviteRole] = useState('member')
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [rsvpExpanded, setRsvpExpanded] = useState<string | null>(null)
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
   const [isDesktop, setIsDesktop] = useState(false)
 
@@ -2136,6 +2155,15 @@ function EventPage() {
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
   const canInvite = isHost || event?.invite_permission === 'anyone'
   const canRemove = isHost || isCohost
+  const myMembership = members.find(m => m.user_email === user?.email)
+  const myRsvpStatus = isHost ? 'going' : (myMembership?.rsvp_status || null)
+  const canInteract = isHost || isCohost || myRsvpStatus === 'going'
+  const rsvpCounts = {
+    going: members.filter(m => m.rsvp_status === 'going').length + 1,
+    maybe: members.filter(m => m.rsvp_status === 'maybe').length,
+    not_going: members.filter(m => m.rsvp_status === 'not_going').length,
+    invited: members.filter(m => (m.rsvp_status || 'invited') === 'invited').length,
+  }
 
   const getCountdown = (dateStr: string) => {
     if (!dateStr) return null
@@ -2201,6 +2229,12 @@ function EventPage() {
     setConfirmRemove(null)
   }
 
+  async function updateRsvp(status: 'going' | 'maybe' | 'not_going') {
+    if (!myMembership) return
+    const { error } = await supabase.from('event_members').update({ rsvp_status: status }).eq('id', myMembership.id)
+    if (!error) setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
+  }
+
   function shareViaText() {
     const message = `Hey! You're invited to ${event?.name}. Join here: https://evnt.team/invite/${eventId}`
     window.open(`sms:?body=${encodeURIComponent(message)}`)
@@ -2253,46 +2287,77 @@ function EventPage() {
         ))}
       </div>
 
+      {!isHost && myMembership && (
+        <div style={{ padding: '12px 24px', background: '#161616', borderBottom: '1px solid #2A2A2A', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px' }}>Your RSVP</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {[
+              { key: 'going', emoji: '✅', label: 'Going', color: '#00E676', bg: 'rgba(0,230,118,0.12)' },
+              { key: 'maybe', emoji: '🤔', label: 'Maybe', color: '#FFD600', bg: 'rgba(255,214,0,0.12)' },
+              { key: 'not_going', emoji: '❌', label: "Can't Go", color: '#FF4D00', bg: 'rgba(255,77,0,0.12)' },
+            ].map(opt => (
+              <button key={opt.key} onClick={() => updateRsvp(opt.key as any)} style={{ flex: 1, padding: '10px 8px', borderRadius: '10px', border: `1px solid ${myRsvpStatus === opt.key ? opt.color : '#2A2A2A'}`, background: myRsvpStatus === opt.key ? opt.bg : '#0A0A0A', color: myRsvpStatus === opt.key ? opt.color : '#888', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>{opt.emoji} {opt.label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: '24px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         {activeTab === 'overview' && (
           <div>
             <div style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Members ({members.length + 1})</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Attendees</div>
                 {canInvite && <button onClick={() => setShowInviteModal(true)} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Invite</button>}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(user?.email)}</div>
-                  <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
-                </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {[
+                  { key: 'going', emoji: '✅', label: 'Going', count: rsvpCounts.going, color: '#00E676', bg: 'rgba(0,230,118,0.12)' },
+                  { key: 'maybe', emoji: '🤔', label: 'Maybe', count: rsvpCounts.maybe, color: '#FFD600', bg: 'rgba(255,214,0,0.12)' },
+                  { key: 'not_going', emoji: '❌', label: 'No', count: rsvpCounts.not_going, color: '#FF4D00', bg: 'rgba(255,77,0,0.12)' },
+                  { key: 'invited', emoji: '⏳', label: 'Invited', count: rsvpCounts.invited, color: '#888', bg: 'rgba(255,255,255,0.06)' },
+                ].filter(p => p.count > 0).map(pill => (
+                  <div key={pill.key} onClick={() => setRsvpExpanded(rsvpExpanded === pill.key ? null : pill.key)} style={{ padding: '6px 12px', borderRadius: '20px', background: rsvpExpanded === pill.key ? pill.bg : 'rgba(255,255,255,0.04)', border: `1px solid ${rsvpExpanded === pill.key ? pill.color : '#2A2A2A'}`, fontSize: '13px', fontWeight: 700, color: pill.color, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>{pill.emoji} {pill.count} {pill.label}</div>
+                ))}
               </div>
-              {members.map((member, i) => {
-                const canRemoveThis = canRemove && !(isCohost && !isHost && member.role_level === 'cohost')
-                return confirmRemove === member.id ? (
-                  <div key={i} style={{ padding: '14px', background: '#1A1010', borderRadius: '10px', marginBottom: '8px', border: '1px solid #FF4D00' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0', marginBottom: '12px' }}>Remove {getName(member.user_email)}?</div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => removeMember(member)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>Remove</button>
-                      <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, background: '#2A2A2A', border: 'none', borderRadius: '8px', padding: '10px', color: '#F0F0F0', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(member.user_email)}</div>
-                      <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'} · Invited</div>
-                    </div>
-                    {canRemoveThis && (
-                      <div onClick={() => setConfirmRemove(member.id)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                        <span style={{ color: '#FF4D00', fontSize: '14px', fontWeight: 700 }}>✕</span>
+              {rsvpExpanded && (
+                <div>
+                  {rsvpExpanded === 'going' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(user?.email)}</div>
+                        <div style={{ fontSize: '11px', color: '#FF4D00', fontWeight: 700 }}>👑 Host</div>
                       </div>
-                    )}
-                  </div>
-                )
-              })}
+                    </div>
+                  )}
+                  {members.filter(m => (m.rsvp_status || 'invited') === rsvpExpanded).map((member, i) => {
+                    const canRemoveThis = canRemove && !(isCohost && !isHost && member.role_level === 'cohost')
+                    return confirmRemove === member.id ? (
+                      <div key={i} style={{ padding: '14px', background: '#1A1010', borderRadius: '10px', marginBottom: '8px', border: '1px solid #FF4D00' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0', marginBottom: '12px' }}>Remove {getName(member.user_email)}?</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => removeMember(member)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Remove</button>
+                          <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, background: '#2A2A2A', border: 'none', borderRadius: '8px', padding: '10px', color: '#F0F0F0', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#161616', borderRadius: '10px', marginBottom: '8px', border: '1px solid #2A2A2A' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{getName(member.user_email)}</div>
+                          <div style={{ fontSize: '11px', color: member.role_level === 'cohost' ? '#FFD600' : '#666', fontWeight: 700 }}>{member.role_level === 'cohost' ? '⭐ Co-host' : '👤 Member'}</div>
+                        </div>
+                        {canRemoveThis && (
+                          <div onClick={() => setConfirmRemove(member.id)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                            <span style={{ color: '#FF4D00', fontSize: '14px', fontWeight: 700 }}>✕</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               {members.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>No members yet — invite your crew!</div>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -2306,14 +2371,14 @@ function EventPage() {
           </div>
         )}
 
-        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} members={members} setActiveTab={setActiveTab} />}
+        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} members={members} setActiveTab={setActiveTab} canInteract={canInteract} />}
         {activeTab === 'travel' && <TravelTab eventId={eventId!} user={user} members={members} getName={getName} isDesktop={isDesktop} />}
-        {activeTab === 'payments' && <PaymentsTab eventId={eventId!} user={user} members={members} event={event} getName={getName} isDesktop={isDesktop} />}
-        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} />}
+        {activeTab === 'payments' && <PaymentsTab eventId={eventId!} user={user} members={members} event={event} getName={getName} isDesktop={isDesktop} canInteract={canInteract} />}
+        {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} canInteract={canInteract} />}
 
-        {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} event={event} />}
+        {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} event={event} canInteract={canInteract} />}
 
-        {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} getName={getName} />}
+        {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} getName={getName} canInteract={canInteract} />}
       </div>
 
       {showInviteModal && (
