@@ -83,6 +83,17 @@ export default function Dashboard() {
 
   const getEmoji = (type: string) => eventTypes.find(e => e.label === type)?.emoji || '✨'
 
+  const isEventPast = (event: any) => {
+    const checkDate = event.end_date || event.dates
+    if (!checkDate) return false
+    const d = new Date(checkDate + 'T23:59:59')
+    return !isNaN(d.getTime()) && d < new Date()
+  }
+
+  const upcomingEvents = events.filter(e => !isEventPast(e))
+  const completedEvents = events.filter(e => isEventPast(e))
+  const [showCompleted, setShowCompleted] = useState(false)
+
   const getCountdown = (dateStr: string) => {
     if (!dateStr) return null
     const eventDate = new Date(dateStr)
@@ -132,7 +143,7 @@ export default function Dashboard() {
             Hey {profile?.full_name || user?.email?.split('@')[0]} 👋
           </h1>
           <p style={{ color: '#666', fontSize: '14px' }}>
-            {events.length === 0 ? 'No events yet — create your first one!' : `You have ${events.length} upcoming event${events.length > 1 ? 's' : ''}`}
+            {events.length === 0 ? 'No events yet — create your first one!' : `You have ${upcomingEvents.length} upcoming event${upcomingEvents.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -151,31 +162,64 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: '12px', fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Your Events</div>
-            {events.map(event => (
-              <div key={event.id} onClick={() => router.push(`/prototype/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
-                  {getEmoji(event.event_type)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{event.name}</div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>{event.destination || 'No location'} {event.dates ? `· ${event.dates}` : ''}</div>
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    {getCountdown(event.dates) && (
-                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
-                        ⏳ {getCountdown(event.dates)}
+            {upcomingEvents.length > 0 && (
+              <>
+                <div style={{ marginBottom: '12px', fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Upcoming Events</div>
+                {upcomingEvents.map(event => (
+                  <div key={event.id} onClick={() => router.push(`/prototype/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
+                      {getEmoji(event.event_type)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{event.name}</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>{event.destination || 'No location'} {event.dates ? `· ${new Date(event.dates + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        {getCountdown(event.dates) && (
+                          <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>
+                            ⏳ {getCountdown(event.dates)}
+                          </div>
+                        )}
+                        {(event.requires_flights || event.requires_lodging) && (
+                          <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>
+                            🧳 Travel
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {(event.requires_flights || event.requires_lodging) && (
-                      <div style={{ display: 'inline-block', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', background: 'rgba(100,180,255,0.1)', color: '#64B4FF' }}>
-                        🧳 Travel
-                      </div>
-                    )}
+                    </div>
+                    <div style={{ fontSize: '18px', color: '#666' }}>→</div>
                   </div>
-                </div>
-                <div style={{ fontSize: '18px', color: '#666' }}>→</div>
+                ))}
+              </>
+            )}
+            {upcomingEvents.length === 0 && completedEvents.length > 0 && (
+              <div style={{ textAlign: 'center', color: '#666', padding: '24px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px' }}>No upcoming events</div>
               </div>
-            ))}
+            )}
+            {completedEvents.length > 0 && (
+              <div style={{ marginTop: upcomingEvents.length > 0 ? '20px' : '0' }}>
+                <div onClick={() => setShowCompleted(!showCompleted)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '10px', cursor: 'pointer', opacity: 0.6, marginBottom: showCompleted ? '12px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>✅</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#999' }}>Completed Events</span>
+                    <span style={{ fontSize: '11px', color: '#555' }}>({completedEvents.length})</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#555' }}>{showCompleted ? '▲' : '▼'}</div>
+                </div>
+                {showCompleted && completedEvents.map(event => (
+                  <div key={event.id} onClick={() => router.push(`/prototype/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', opacity: 0.5 }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
+                      {getEmoji(event.event_type)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{event.name}</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>{event.destination || 'No location'} {event.dates ? `· ${new Date(event.dates + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
+                    </div>
+                    <div style={{ fontSize: '18px', color: '#666' }}>→</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
