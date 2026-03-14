@@ -177,8 +177,11 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
     return endOfDay < now
   }
   const confirmedItems = items.filter(item => !item.is_votable || item.is_booked)
+  const pastItems = confirmedItems.filter(item => isPast(item))
+  const upcomingItems = confirmedItems.filter(item => !isPast(item))
+  const [showPastActivities, setShowPastActivities] = useState(false)
   const pendingVoteCount = items.filter(item => item.is_votable && !item.is_booked).length
-  const grouped = confirmedItems.reduce((acc: any, item) => {
+  const grouped = upcomingItems.reduce((acc: any, item) => {
     const key = item.date || 'No Date'
     if (!acc[key]) acc[key] = []
     acc[key].push(item)
@@ -199,12 +202,52 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD600' }}>→</div>
         </div>
       )}
+      {pastItems.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <div onClick={() => setShowPastActivities(!showPastActivities)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '10px', cursor: 'pointer', opacity: 0.6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px' }}>✅</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#999' }}>Past Activities</span>
+              <span style={{ fontSize: '11px', color: '#555' }}>({pastItems.length})</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#555' }}>{showPastActivities ? '▲' : '▼'}</div>
+          </div>
+          {showPastActivities && (
+            <div style={{ marginTop: '8px', padding: '8px 12px', background: '#111', borderRadius: '8px', border: '1px solid #1A1A1A' }}>
+              {pastItems.map((item: any) => (
+                <div key={item.id} onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: '6px 0', borderBottom: '1px solid #1A1A1A', cursor: 'pointer', opacity: 0.5 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>{getCategoryEmoji(item.category)}</span>
+                    <span style={{ fontSize: '12px', color: '#888' }}>{item.title}</span>
+                    {item.date && <span style={{ fontSize: '10px', color: '#444', marginLeft: 'auto' }}>{new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                  </div>
+                  {expandedItem === item.id && (
+                    <div style={{ padding: '8px 0 4px 22px' }}>
+                      {item.start_time && <div style={{ fontSize: '11px', color: '#555', marginBottom: '4px' }}>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</div>}
+                      {item.location && <div style={{ fontSize: '11px', color: '#555', marginBottom: '4px' }}>📍 {item.location}</div>}
+                      {item.description && <div style={{ fontSize: '11px', color: '#555' }}>{item.description}</div>}
+                      {canInteract && <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(item) }} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, color: '#F0F0F0', cursor: 'pointer' }}>✏️ Edit</button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id) }} style={{ background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>🗑 Delete</button>
+                      </div>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {confirmedItems.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗓</div>
           <div style={{ fontWeight: 700, marginBottom: '8px' }}>No itinerary items yet</div>
           <div style={{ fontSize: '13px', marginBottom: '16px' }}>Add activities, flights, lodging and more</div>
           {canInteract ? <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px', boxShadow: '0 3px 10px rgba(255, 77, 0, 0.35)' }}>Add First Item →</button> : <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>RSVP &quot;Going&quot; to add items</div>}
+        </div>
+      ) : upcomingItems.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#666', padding: '24px' }}>
+          <div style={{ fontSize: '13px' }}>No upcoming activities</div>
         </div>
       ) : (
         Object.entries(grouped).map(([date, dateItems]: any) => (
@@ -213,25 +256,22 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab, canInteract
               {date === 'No Date' ? 'No Date' : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
             {dateItems.map((item: any) => {
-              const past = isPast(item)
-              return <div key={item.id} style={{ background: past ? 'transparent' : '#161616', border: past ? 'none' : '1px solid #2A2A2A', borderRadius: past ? '0' : '12px', marginBottom: past ? '2px' : '10px', overflow: 'hidden', opacity: past ? 0.4 : 1 }}>
-                <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: past ? '4px 8px' : '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: past ? '6px' : '12px' }}>
-                  {!past && <div style={{ fontSize: '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>}
+              return <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', marginBottom: '10px', overflow: 'hidden' }}>
+                <div onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)} style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ fontSize: '24px', flexShrink: 0 }}>{getCategoryEmoji(item.category)}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: past ? '0px' : '4px' }}>
-                      {past && <div style={{ fontSize: '11px', color: '#555', textDecoration: 'line-through' }}>{item.title}</div>}
-                      {past && <div style={{ fontSize: '9px', fontWeight: 700, color: '#444' }}>Done</div>}
-                      {!past && <div style={{ fontWeight: 700, fontSize: '14px' }}>{item.title}</div>}
-                      {!past && item.is_votable && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>🗳 VOTE</div>}
-                      {!past && item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px' }}>{item.title}</div>
+                      {item.is_votable && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>🗳 VOTE</div>}
+                      {item.is_booked && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.15)', color: '#00E676' }}>✅ BOOKED</div>}
                     </div>
-                    {!past && <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
                       {item.location && <span>📍 {item.location}</span>}
-                    </div>}
-                    {!past && item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{item.description}</div>}
+                    </div>
+                    {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{item.description}</div>}
                   </div>
-                  {!past && <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>}
+                  <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>
                 </div>
                 {expandedItem === item.id && (
                   <div style={{ padding: '0 16px 16px', borderTop: '1px solid #1A1A1A' }}>
