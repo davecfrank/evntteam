@@ -209,6 +209,7 @@ function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId
                       {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
                       {item.location && <span>📍 {item.location}</span>}
                     </div>
+                    {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{item.description}</div>}
                   </div>
                   <div style={{ fontSize: '12px', color: '#666' }}>{expandedItem === item.id ? '▲' : '▼'}</div>
                 </div>
