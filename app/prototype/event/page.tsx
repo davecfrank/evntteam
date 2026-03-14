@@ -2272,25 +2272,34 @@ function EventPage() {
     setShowEditModal(true)
   }
 
+  const [editError, setEditError] = useState('')
+
   async function saveEventEdit() {
     if (!editName.trim()) return
     setEditSaving(true)
-    const payload = {
+    setEditError('')
+    // Core fields that always exist
+    const payload: Record<string, any> = {
       name: editName,
       destination: editDestination,
       dates: editDates,
-      end_date: editEndDate || null,
-      event_time: editEventTime || null,
       event_type: editEventType,
       invite_permission: editInvitePermission,
       requires_flights: editRequiresTravel,
       requires_lodging: editRequiresTravel,
-      requires_rental_cars: editRequiresTravel,
-      payments_enabled: editPaymentsEnabled,
-      voting_enabled: editVotingEnabled,
     }
+    // New columns — only include if they exist on current event object (i.e. migration has been run)
+    if (event && 'end_date' in event) payload.end_date = editEndDate || null
+    if (event && 'event_time' in event) payload.event_time = editEventTime || null
+    if (event && 'requires_rental_cars' in event) payload.requires_rental_cars = editRequiresTravel
+    if (event && 'payments_enabled' in event) payload.payments_enabled = editPaymentsEnabled
+    if (event && 'voting_enabled' in event) payload.voting_enabled = editVotingEnabled
+
     const { data, error } = await supabase.from('events').update(payload).eq('id', eventId).select().single()
-    if (!error && data) {
+    if (error) {
+      console.error('Edit event error:', error)
+      setEditError(error.message || 'Failed to save changes')
+    } else if (data) {
       setEvent(data)
       setShowEditModal(false)
     }
@@ -2564,6 +2573,7 @@ function EventPage() {
               <ToggleRow value={editVotingEnabled} onChange={setEditVotingEnabled} label="🗳 Enable voting?" desc="Let members vote on activities" color="#FFD600" bg="rgba(255,214,0,0.08)" />
             </div>
 
+            {editError && <div style={{ background: 'rgba(255,60,60,0.1)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '12px', fontSize: '13px', color: '#ff6b6b' }}>{editError}</div>}
             <button onClick={saveEventEdit} disabled={editSaving || !editName.trim()} style={{ width: '100%', background: editSaving || !editName.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: editSaving || !editName.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: editSaving || !editName.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
               {editSaving ? 'Saving...' : 'Save Changes →'}
             </button>
