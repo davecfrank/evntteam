@@ -17,6 +17,15 @@ function formatTime(t: string): string {
   return `${hour}:${m.toString().padStart(2, '0')} ${period}`
 }
 
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 function ScrollColumn({ items, selected, onChange, width }: { items: string[], selected: number, onChange: (i: number) => void, width?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const itemH = 40
@@ -2094,6 +2103,13 @@ function EventPage() {
   const editDateRef = useRef<HTMLInputElement>(null)
   const editEndDateRef = useRef<HTMLInputElement>(null)
 
+  // Announcements
+  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [showPostForm, setShowPostForm] = useState(false)
+  const [postContent, setPostContent] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [deleteAnnouncementId, setDeleteAnnouncementId] = useState<string | null>(null)
+
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 768)
     check()
@@ -2152,6 +2168,10 @@ function EventPage() {
       if (photoUsers) photoUsers.forEach((p: any) => { if (p.user_id) { userIds.add(p.user_id); if (p.user_email) emailToId[p.user_email] = p.user_id } })
       const { data: chatUsers } = await supabase.from('chat_messages').select('user_id, user_email').eq('event_id', eventId)
       if (chatUsers) chatUsers.forEach((m: any) => { if (m.user_id) { userIds.add(m.user_id); if (m.user_email) emailToId[m.user_email] = m.user_id } })
+      // Fetch announcements
+      const { data: announcementsData } = await supabase.from('event_announcements').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
+      setAnnouncements(announcementsData || [])
+      if (announcementsData) announcementsData.forEach((a: any) => { if (a.user_id) { userIds.add(a.user_id); if (a.user_email) emailToId[a.user_email] = a.user_id } })
       // Bulk fetch profiles
       const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', Array.from(userIds))
       const map: Record<string, string> = {}
@@ -2192,6 +2212,29 @@ function EventPage() {
   }
 
   const getEmoji = (type: string) => ({ Birthday: '🎂', Bachelor: '🎉', Vacation: '☀️', Wedding: '💒', Holiday: '🎄', Other: '✨' } as any)[type] || '✨'
+
+  async function postAnnouncement() {
+    if (!postContent.trim()) return
+    setPosting(true)
+    const { data, error } = await supabase.from('event_announcements').insert({
+      event_id: eventId,
+      user_id: user.id,
+      user_email: user.email,
+      content: postContent.trim()
+    }).select()
+    if (data && data.length > 0) {
+      setAnnouncements(prev => [data[0], ...prev])
+    }
+    setPostContent('')
+    setShowPostForm(false)
+    setPosting(false)
+  }
+
+  async function deleteAnnouncement(id: string) {
+    await supabase.from('event_announcements').delete().eq('id', id)
+    setAnnouncements(prev => prev.filter(a => a.id !== id))
+    setDeleteAnnouncementId(null)
+  }
 
   async function inviteByEmail() {
     if (!inviteEmail.trim()) return
@@ -2437,6 +2480,68 @@ function EventPage() {
               )}
               {members.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '13px', border: '2px dashed #2A2A2A', borderRadius: '10px' }}>No members yet — invite your crew!</div>}
             </div>
+
+            {/* Announcements Section */}
+            {(isHost || isCohost || announcements.length > 0) && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Announcements</div>
+
+                {(isHost || isCohost) && !showPostForm && (
+                  <div onClick={() => setShowPostForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px', marginBottom: '12px', background: '#161616', border: '1px dashed #FF4D00', borderRadius: '12px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '18px' }}>📢</span>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#FF4D00' }}>Post Update</div>
+                      <div style={{ fontSize: '11px', color: '#666' }}>Share an announcement with your group</div>
+                    </div>
+                  </div>
+                )}
+
+                {(isHost || isCohost) && showPostForm && (
+                  <div style={{ padding: '16px', marginBottom: '12px', background: '#161616', border: '1px solid #FF4D00', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>New Announcement</div>
+                      <span onClick={() => { setShowPostForm(false); setPostContent('') }} style={{ color: '#666', cursor: 'pointer', fontSize: '14px', fontWeight: 700 }}>✕</span>
+                    </div>
+                    <textarea value={postContent} onChange={e => setPostContent(e.target.value)} placeholder="What's the update?" rows={3} style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', fontFamily: 'inherit' }} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                      <button onClick={postAnnouncement} disabled={posting || !postContent.trim()} style={{ background: postContent.trim() ? '#FF4D00' : '#333', border: 'none', borderRadius: '8px', padding: '8px 20px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: postContent.trim() ? 'pointer' : 'default', boxShadow: postContent.trim() ? '0 2px 8px rgba(255, 77, 0, 0.35)' : 'none' }}>
+                        {posting ? 'Posting...' : 'Post'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {announcements.map(post => (
+                  <div key={post.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '14px 16px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff' }}>{getInitial(post.user_email)}</div>
+                        <div>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0' }}>{getName(post.user_email)}</span>
+                          <span style={{ fontSize: '11px', color: '#666', marginLeft: '8px' }}>{timeAgo(post.created_at)}</span>
+                        </div>
+                      </div>
+                      {(isHost || isCohost) && post.user_id === user?.id && (
+                        <div onClick={() => setDeleteAnnouncementId(deleteAnnouncementId === post.id ? null : post.id)} style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,77,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <span style={{ color: '#FF4D00', fontSize: '12px', fontWeight: 700 }}>✕</span>
+                        </div>
+                      )}
+                    </div>
+                    {deleteAnnouncementId === post.id && (
+                      <div style={{ background: '#1A1010', border: '1px solid #FF4D00', borderRadius: '8px', padding: '10px', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#F0F0F0', marginBottom: '8px' }}>Delete this announcement?</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => deleteAnnouncement(post.id)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                          <button onClick={() => setDeleteAnnouncementId(null)} style={{ flex: 1, background: '#2A2A2A', border: 'none', borderRadius: '8px', padding: '8px', color: '#F0F0F0', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '14px', color: '#F0F0F0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{post.content}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {(isHost || isCohost) && (
               <div onClick={openEditModal} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', marginBottom: '16px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
