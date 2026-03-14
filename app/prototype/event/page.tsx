@@ -23,7 +23,7 @@ function ToggleRow({ value, onChange, label, desc, color, bg }: any) {
   )
 }
 
-function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, event: any }) {
+function ItineraryTab({ eventId, user, event, members, setActiveTab }: { eventId: string, user: any, event: any, members: any[], setActiveTab: (tab: string) => void }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -38,6 +38,7 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
   const [category, setCategory] = useState('activity')
   const [isVotable, setIsVotable] = useState(false)
   const [isBooked, setIsBooked] = useState(false)
+  const [confirmMode, setConfirmMode] = useState<'auto' | 'manual'>('manual')
   const [saving, setSaving] = useState(false)
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
 
@@ -62,13 +63,13 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
   function resetForm() {
     setTitle(''); setDescription(''); setNotes(''); setDate('')
     setStartTime(''); setEndTime(''); setLocation('')
-    setCategory('activity'); setIsVotable(false); setIsBooked(false); setEditItem(null)
+    setCategory('activity'); setIsVotable(false); setIsBooked(false); setConfirmMode('manual'); setEditItem(null)
   }
 
   async function saveItem() {
     if (!title.trim()) return
     setSaving(true)
-    const payload = { event_id: eventId, title, description, notes, date, start_time: startTime, end_time: endTime, location, category, is_votable: isVotable, is_booked: isBooked, created_by: user.id }
+    const payload = { event_id: eventId, title, description, notes, date, start_time: startTime, end_time: endTime, location, category, is_votable: isVotable, is_booked: isBooked, confirm_mode: confirmMode, created_by: user.id }
     if (editItem) {
       const { data } = await supabase.from('itinerary_items').update(payload).eq('id', editItem.id).select().single()
       if (data) setItems(prev => prev.map(i => i.id === editItem.id ? data : i))
@@ -89,11 +90,13 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
     setNotes(item.notes || ''); setDate(item.date || ''); setStartTime(item.start_time || '')
     setEndTime(item.end_time || ''); setLocation(item.location || '')
     setCategory(item.category || 'activity'); setIsVotable(item.is_votable || false)
-    setIsBooked(item.is_booked || false); setShowAddModal(true)
+    setIsBooked(item.is_booked || false); setConfirmMode(item.confirm_mode || 'manual'); setShowAddModal(true)
   }
 
   const getCategoryEmoji = (cat: string) => categories.find(c => c.value === cat)?.label.split(' ')[0] || '✨'
-  const grouped = items.reduce((acc: any, item) => {
+  const confirmedItems = items.filter(item => !item.is_votable || item.is_booked)
+  const pendingVoteCount = items.filter(item => item.is_votable && !item.is_booked).length
+  const grouped = confirmedItems.reduce((acc: any, item) => {
     const key = item.date || 'No Date'
     if (!acc[key]) acc[key] = []
     acc[key].push(item)
@@ -105,10 +108,16 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>{items.length} {items.length === 1 ? 'Item' : 'Items'}</div>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>{confirmedItems.length} {confirmedItems.length === 1 ? 'Item' : 'Items'}</div>
         <button onClick={() => { resetForm(); setShowAddModal(true) }} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)' }}>+ Add Item</button>
       </div>
-      {items.length === 0 ? (
+      {pendingVoteCount > 0 && (
+        <div onClick={() => setActiveTab('vote')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', marginBottom: '16px', background: 'rgba(255,214,0,0.08)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: '10px', cursor: 'pointer' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD600' }}>🗳 {pendingVoteCount} {pendingVoteCount === 1 ? 'item' : 'items'} up for vote</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFD600' }}>→</div>
+        </div>
+      )}
+      {confirmedItems.length === 0 ? (
         <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗓</div>
           <div style={{ fontWeight: 700, marginBottom: '8px' }}>No itinerary items yet</div>
@@ -181,8 +190,20 @@ function ItineraryTab({ eventId, user, event }: { eventId: string, user: any, ev
             <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Description (optional)</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Private notes, reminders, links..." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <ToggleRow value={isVotable} onChange={setIsVotable} label="🗳 Open to Group Vote" desc="Let members vote on this item" color="#FFD600" bg="rgba(255,214,0,0.08)" />
-              <ToggleRow value={isBooked} onChange={setIsBooked} label="✅ Mark as Booked" desc="This item is confirmed" color="#00E676" bg="rgba(0,230,118,0.08)" />
+              <ToggleRow value={isVotable} onChange={(val: boolean) => { setIsVotable(val); if (val) setIsBooked(false); if (!val) setConfirmMode('manual'); }} label="🗳 Open to Group Vote" desc="Let members vote on this item" color="#FFD600" bg="rgba(255,214,0,0.08)" />
+              {isVotable && (
+                <div style={{ marginLeft: '16px', display: 'flex', gap: '8px' }}>
+                  <div onClick={() => setConfirmMode('auto')} style={{ flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', background: confirmMode === 'auto' ? 'rgba(255,214,0,0.12)' : '#0A0A0A', border: `1px solid ${confirmMode === 'auto' ? '#FFD600' : '#2A2A2A'}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: confirmMode === 'auto' ? '#FFD600' : '#666' }}>Auto-confirm</div>
+                    <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>Confirms at majority vote</div>
+                  </div>
+                  <div onClick={() => setConfirmMode('manual')} style={{ flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', background: confirmMode === 'manual' ? 'rgba(255,214,0,0.12)' : '#0A0A0A', border: `1px solid ${confirmMode === 'manual' ? '#FFD600' : '#2A2A2A'}` }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: confirmMode === 'manual' ? '#FFD600' : '#666' }}>Manual confirm</div>
+                    <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>Host confirms manually</div>
+                  </div>
+                </div>
+              )}
+              <ToggleRow value={isBooked} onChange={(val: boolean) => { setIsBooked(val); if (val) { setIsVotable(false); setConfirmMode('manual'); } }} label="✅ Mark as Booked" desc="This item is confirmed" color="#00E676" bg="rgba(0,230,118,0.08)" />
             </div>
             <button onClick={saveItem} disabled={saving || !title.trim()} style={{ width: '100%', background: saving || !title.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !title.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !title.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>
               {saving ? 'Saving...' : editItem ? 'Save Changes →' : 'Add to Itinerary →'}
@@ -1259,11 +1280,14 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop
   )
 }
 
-function VoteTab({ eventId, user, members }: { eventId: string, user: any, members: any[] }) {
+function VoteTab({ eventId, user, members, event }: { eventId: string, user: any, members: any[], event: any }) {
   const [items, setItems] = useState<any[]>([])
   const [votes, setVotes] = useState<Record<string, any[]>>({})
   const [loading, setLoading] = useState(true)
   const memberCount = members.length + 1 // +1 for host
+  const isHost = event?.owner_id === user?.id
+  const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
+  const canConfirm = isHost || isCohost
 
   useEffect(() => {
     async function load() {
@@ -1286,24 +1310,39 @@ function VoteTab({ eventId, user, members }: { eventId: string, user: any, membe
     load()
   }, [eventId])
 
+  async function confirmItem(itemId: string) {
+    const { data } = await supabase.from('itinerary_items').update({ is_booked: true, is_votable: false }).eq('id', itemId).select().single()
+    if (data) setItems(prev => prev.filter(i => i.id !== itemId))
+  }
+
   async function castVote(itemId: string, vote: 'up' | 'down') {
     const itemVotes = votes[itemId] || []
     const existing = itemVotes.find(v => v.user_id === user.id)
+    let newItemVotes = [...itemVotes]
+
     if (existing) {
       if (existing.vote === vote) {
-        // Remove vote
         await supabase.from('item_votes').delete().eq('id', existing.id)
-        setVotes(prev => ({ ...prev, [itemId]: (prev[itemId] || []).filter(v => v.id !== existing.id) }))
+        newItemVotes = newItemVotes.filter(v => v.id !== existing.id)
       } else {
-        // Change vote
         const { data } = await supabase.from('item_votes').update({ vote }).eq('id', existing.id).select().single()
-        if (data) setVotes(prev => ({ ...prev, [itemId]: (prev[itemId] || []).map(v => v.id === existing.id ? data : v) }))
+        if (data) newItemVotes = newItemVotes.map(v => v.id === existing.id ? data : v)
       }
     } else {
-      // New vote
       const { data, error: voteErr } = await supabase.from('item_votes').insert({ item_id: itemId, event_id: eventId, user_id: user.id, user_email: user.email, vote }).select().single()
       if (voteErr) console.error('Vote error:', voteErr.message)
-      if (data) setVotes(prev => ({ ...prev, [itemId]: [...(prev[itemId] || []), data] }))
+      if (data) newItemVotes = [...newItemVotes, data]
+    }
+
+    setVotes(prev => ({ ...prev, [itemId]: newItemVotes }))
+
+    // Auto-confirm check
+    const item = items.find(i => i.id === itemId)
+    if (item?.confirm_mode === 'auto') {
+      const upCount = newItemVotes.filter(v => v.vote === 'up').length
+      if (upCount > memberCount / 2) {
+        await confirmItem(itemId)
+      }
     }
   }
 
@@ -1338,7 +1377,10 @@ function VoteTab({ eventId, user, members }: { eventId: string, user: any, membe
               <div style={{ fontSize: '10px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>
                 {getCategoryEmoji(item.category)} {item.category}
               </div>
-              <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{item.title}</div>
+              <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {item.title}
+                {item.confirm_mode === 'auto' && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.12)', color: '#00E676' }}>AUTO</span>}
+              </div>
               <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {item.date && <span>📅 {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                 {item.start_time && <span>🕐 {item.start_time}{item.end_time ? ` – ${item.end_time}` : ''}</span>}
@@ -1353,7 +1395,10 @@ function VoteTab({ eventId, user, members }: { eventId: string, user: any, membe
               <div style={{ fontSize: '12px', color: '#666', fontFamily: 'monospace' }}>
                 {ups} Yes · {downs} No · {totalVotes}/{memberCount} voted
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {canConfirm && (item.confirm_mode || 'manual') === 'manual' && totalVotes > 0 && (
+                  <button onClick={() => confirmItem(item.id)} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: 'rgba(0,230,118,0.2)', color: '#00E676', transition: 'background 0.2s' }}>Confirm ✓</button>
+                )}
                 <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
                 <button onClick={() => castVote(item.id, 'up')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'up' ? '#00E676' : 'rgba(0,230,118,0.15)', transition: 'background 0.2s' }}>👍</button>
               </div>
@@ -2123,12 +2168,12 @@ function EventPage() {
           </div>
         )}
 
-        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} />}
+        {activeTab === 'itinerary' && <ItineraryTab eventId={eventId!} user={user} event={event} members={members} setActiveTab={setActiveTab} />}
         {activeTab === 'travel' && <TravelTab eventId={eventId!} user={user} members={members} getName={getName} isDesktop={isDesktop} />}
         {activeTab === 'payments' && <PaymentsTab eventId={eventId!} user={user} members={members} event={event} getName={getName} isDesktop={isDesktop} />}
         {activeTab === 'chat' && <ChatTab eventId={eventId!} user={user} members={members} flights={flights} lodgings={lodgings} getName={getName} isDesktop={isDesktop} />}
 
-        {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} />}
+        {activeTab === 'vote' && <VoteTab eventId={eventId!} user={user} members={members} event={event} />}
 
         {activeTab === 'photos' && <PhotosTab eventId={eventId!} user={user} event={event} members={members} getName={getName} />}
       </div>
