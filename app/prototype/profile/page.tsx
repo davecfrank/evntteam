@@ -1,10 +1,11 @@
 'use client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 
 export default function Profile() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -12,7 +13,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false)
   const [fullName, setFullName] = useState('')
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('upcoming')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'upcoming')
   const [imports, setImports] = useState<any[]>([])
   const [importSlug, setImportSlug] = useState<string | null>(null)
   const [assigningId, setAssigningId] = useState<string | null>(null)
@@ -253,7 +254,7 @@ export default function Profile() {
         {/* Tabs */}
         <div style={{ display: 'flex', marginTop: '16px' }}>
           {['upcoming', 'past', 'imports'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            <button key={tab} onClick={() => { setActiveTab(tab); router.replace(`/prototype/profile?tab=${tab}`, { scroll: false }) }} style={{
               flex: 1, padding: '12px', background: 'none', border: 'none',
               borderBottom: activeTab === tab ? '2px solid #FF4D00' : '2px solid transparent',
               color: activeTab === tab ? '#FF4D00' : '#666',
