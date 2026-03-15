@@ -30,6 +30,35 @@ function Profile() {
   const [phone, setPhone] = useState('')
   const [phoneVisible, setPhoneVisible] = useState(false)
 
+  // Import form state
+  const [showImportForm, setShowImportForm] = useState(false)
+  const [importFormType, setImportFormType] = useState<'flight' | 'lodging' | 'rental_car'>('flight')
+  const [importFormImportId, setImportFormImportId] = useState<string | null>(null)
+  const [importFormEventId, setImportFormEventId] = useState('')
+  // Flight fields
+  const [ifAirline, setIfAirline] = useState('')
+  const [ifFlightNumber, setIfFlightNumber] = useState('')
+  const [ifDepartureAirport, setIfDepartureAirport] = useState('')
+  const [ifArrivalAirport, setIfArrivalAirport] = useState('')
+  const [ifDepartureTime, setIfDepartureTime] = useState('')
+  const [ifArrivalTime, setIfArrivalTime] = useState('')
+  const [ifFlightNotes, setIfFlightNotes] = useState('')
+  // Lodging fields
+  const [ifHotelName, setIfHotelName] = useState('')
+  const [ifAddress, setIfAddress] = useState('')
+  const [ifCheckIn, setIfCheckIn] = useState('')
+  const [ifCheckOut, setIfCheckOut] = useState('')
+  const [ifConfirmationCode, setIfConfirmationCode] = useState('')
+  const [ifLodgingNotes, setIfLodgingNotes] = useState('')
+  // Rental fields
+  const [ifRentalCompany, setIfRentalCompany] = useState('')
+  const [ifRentalConfirmation, setIfRentalConfirmation] = useState('')
+  const [ifPickupLocation, setIfPickupLocation] = useState('')
+  const [ifPickupTime, setIfPickupTime] = useState('')
+  const [ifDropoffLocation, setIfDropoffLocation] = useState('')
+  const [ifDropoffTime, setIfDropoffTime] = useState('')
+  const [ifRentalNotes, setIfRentalNotes] = useState('')
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -78,34 +107,63 @@ function Profile() {
     setImportSlug(slug)
   }
 
-  async function assignImport(importId: string, eventId: string) {
+  function openImportForm(importId: string, eventId: string) {
     const imp = imports.find((i: any) => i.id === importId)
     if (!imp || !eventId) return
-    const d = imp.parsed_data
-    let insertTable = ''
-    let payload: any = { event_id: eventId, user_id: user.id, user_email: user.email }
+    const d = imp.parsed_data || {}
+    setImportFormImportId(importId)
+    setImportFormEventId(eventId)
 
-    if (imp.type === 'flight') {
-      insertTable = 'member_flights'
-      payload = { ...payload, airline: d.airline, flight_number: d.flight_number, departure_airport: d.departure_airport, arrival_airport: d.arrival_airport, departure_time: d.departure_time, arrival_time: d.arrival_time, notes: d.notes }
-    } else if (imp.type === 'lodging') {
-      insertTable = 'member_lodging'
-      payload = { ...payload, hotel_name: d.hotel_name, address: d.address, check_in: d.check_in, check_out: d.check_out, confirmation_code: d.confirmation_code, notes: d.notes }
-    } else if (imp.type === 'rental_car') {
-      insertTable = 'member_rental_cars'
-      payload = { ...payload, company: d.company, confirmation_code: d.confirmation_code, pickup_location: d.pickup_location, pickup_time: d.pickup_time, dropoff_location: d.dropoff_location, dropoff_time: d.dropoff_time, notes: d.notes }
-    }
+    // Pre-select type if known
+    const type = imp.type === 'flight' ? 'flight' : imp.type === 'lodging' ? 'lodging' : imp.type === 'rental_car' ? 'rental_car' : 'flight'
+    setImportFormType(type as any)
 
-    if (insertTable) {
-      const { error: insertError } = await supabase.from(insertTable).insert(payload)
-      if (insertError) { alert('Failed to add travel data: ' + insertError.message); return }
-    }
+    // Pre-fill flight fields
+    setIfAirline(d.airline || ''); setIfFlightNumber(d.flight_number || '')
+    setIfDepartureAirport(d.departure_airport || ''); setIfArrivalAirport(d.arrival_airport || '')
+    setIfDepartureTime(d.departure_time ? d.departure_time.slice(0, 16) : '')
+    setIfArrivalTime(d.arrival_time ? d.arrival_time.slice(0, 16) : '')
+    setIfFlightNotes(d.notes || '')
+    // Pre-fill lodging fields
+    setIfHotelName(d.hotel_name || ''); setIfAddress(d.address || '')
+    setIfCheckIn(d.check_in || ''); setIfCheckOut(d.check_out || '')
+    setIfConfirmationCode(d.confirmation_code || ''); setIfLodgingNotes(d.notes || '')
+    // Pre-fill rental fields
+    setIfRentalCompany(d.company || ''); setIfRentalConfirmation(d.confirmation_code || '')
+    setIfPickupLocation(d.pickup_location || ''); setIfPickupTime(d.pickup_time ? d.pickup_time.slice(0, 16) : '')
+    setIfDropoffLocation(d.dropoff_location || ''); setIfDropoffTime(d.dropoff_time ? d.dropoff_time.slice(0, 16) : '')
+    setIfRentalNotes(d.notes || '')
 
-    await supabase.from('pending_imports').update({ status: 'assigned', assigned_event_id: eventId }).eq('id', importId)
-    setImports(prev => prev.filter((i: any) => i.id !== importId))
     setAssigningId(null)
     setSelectedEventId('')
-    router.push(`/prototype/event?id=${eventId}`)
+    setShowImportForm(true)
+  }
+
+  async function saveImportToEvent() {
+    if (!importFormImportId || !importFormEventId) return
+    setSaving(true)
+    const payload: any = { event_id: importFormEventId, user_id: user.id, user_email: user.email }
+    let insertTable = ''
+
+    if (importFormType === 'flight') {
+      insertTable = 'member_flights'
+      Object.assign(payload, { airline: ifAirline, flight_number: ifFlightNumber, departure_airport: ifDepartureAirport, arrival_airport: ifArrivalAirport, departure_time: ifDepartureTime || null, arrival_time: ifArrivalTime || null, notes: ifFlightNotes })
+    } else if (importFormType === 'lodging') {
+      insertTable = 'member_lodging'
+      Object.assign(payload, { hotel_name: ifHotelName, address: ifAddress, check_in: ifCheckIn || null, check_out: ifCheckOut || null, confirmation_code: ifConfirmationCode, notes: ifLodgingNotes })
+    } else if (importFormType === 'rental_car') {
+      insertTable = 'member_rental_cars'
+      Object.assign(payload, { company: ifRentalCompany, confirmation_code: ifRentalConfirmation, pickup_location: ifPickupLocation, pickup_time: ifPickupTime || null, dropoff_location: ifDropoffLocation, dropoff_time: ifDropoffTime || null, notes: ifRentalNotes })
+    }
+
+    const { error: insertError } = await supabase.from(insertTable).insert(payload)
+    if (insertError) { alert('Failed to add travel data: ' + insertError.message); setSaving(false); return }
+
+    await supabase.from('pending_imports').update({ status: 'assigned', assigned_event_id: importFormEventId }).eq('id', importFormImportId)
+    setImports(prev => prev.filter((i: any) => i.id !== importFormImportId))
+    setShowImportForm(false)
+    setSaving(false)
+    router.push(`/prototype/event?id=${importFormEventId}`)
   }
 
   async function dismissImport(importId: string) {
@@ -387,7 +445,7 @@ function Profile() {
                         {events.map((ev: any) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
                       </select>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => assignImport(imp.id, selectedEventId)} disabled={!selectedEventId} style={{ flex: 1, background: selectedEventId ? '#FF4D00' : '#333', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: selectedEventId ? 'pointer' : 'not-allowed' }}>Confirm</button>
+                        <button onClick={() => openImportForm(imp.id, selectedEventId)} disabled={!selectedEventId} style={{ flex: 1, background: selectedEventId ? '#FF4D00' : '#333', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: selectedEventId ? 'pointer' : 'not-allowed' }}>Confirm</button>
                         <button onClick={() => { setAssigningId(null); setSelectedEventId('') }} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
@@ -415,6 +473,94 @@ function Profile() {
           Sign Out
         </button>
       </div>
+
+      {/* ===== IMPORT REVIEW FORM MODAL ===== */}
+      {showImportForm && (() => {
+        const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
+        const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#F0F0F0', outline: 'none', boxSizing: 'border-box' }
+        const typeOptions = [
+          { value: 'flight' as const, icon: '✈️', label: 'Flight', color: '#64B4FF' },
+          { value: 'lodging' as const, icon: '🏨', label: 'Hotel', color: '#B464FF' },
+          { value: 'rental_car' as const, icon: '🚗', label: 'Rental Car', color: '#4ADE80' },
+        ]
+        const activeColor = typeOptions.find(t => t.value === importFormType)?.color || '#FF4D00'
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 200 }}>
+            <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+              <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+              <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Review Import</h2>
+
+              {/* Type picker */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                {typeOptions.map(t => (
+                  <button key={t.value} onClick={() => setImportFormType(t.value)} style={{
+                    flex: 1, padding: '12px 8px', borderRadius: '10px', border: importFormType === t.value ? `2px solid ${t.color}` : '2px solid #2A2A2A',
+                    background: importFormType === t.value ? `${t.color}15` : '#0A0A0A', cursor: 'pointer', textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '20px', marginBottom: '4px' }}>{t.icon}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: importFormType === t.value ? t.color : '#666' }}>{t.label}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Flight form */}
+              {importFormType === 'flight' && (
+                <div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Airline</label><input value={ifAirline} onChange={e => setIfAirline(e.target.value)} placeholder="Delta" style={inputStyle} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Flight #</label><input value={ifFlightNumber} onChange={e => setIfFlightNumber(e.target.value)} placeholder="DL 1234" style={inputStyle} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>From</label><input value={ifDepartureAirport} onChange={e => setIfDepartureAirport(e.target.value)} placeholder="LAX" style={inputStyle} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>To</label><input value={ifArrivalAirport} onChange={e => setIfArrivalAirport(e.target.value)} placeholder="BNA" style={inputStyle} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Departure</label><input type="datetime-local" value={ifDepartureTime} onChange={e => setIfDepartureTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Arrival</label><input type="datetime-local" value={ifArrivalTime} onChange={e => setIfArrivalTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                  </div>
+                  <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={ifFlightNotes} onChange={e => setIfFlightNotes(e.target.value)} placeholder="Seat 14A, checked bag, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+                </div>
+              )}
+
+              {/* Lodging form */}
+              {importFormType === 'lodging' && (
+                <div>
+                  <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Hotel / Airbnb Name</label><input value={ifHotelName} onChange={e => setIfHotelName(e.target.value)} placeholder="The Grand Hyatt" style={inputStyle} /></div>
+                  <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Address</label><input value={ifAddress} onChange={e => setIfAddress(e.target.value)} placeholder="123 Broadway, Nashville TN" style={inputStyle} /></div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Check-in</label><input type="date" value={ifCheckIn} onChange={e => setIfCheckIn(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Check-out</label><input type="date" value={ifCheckOut} onChange={e => setIfCheckOut(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                  </div>
+                  <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Confirmation Code</label><input value={ifConfirmationCode} onChange={e => setIfConfirmationCode(e.target.value)} placeholder="ABC123XYZ" style={inputStyle} /></div>
+                  <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={ifLodgingNotes} onChange={e => setIfLodgingNotes(e.target.value)} placeholder="Pool access, parking, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+                </div>
+              )}
+
+              {/* Rental car form */}
+              {importFormType === 'rental_car' && (
+                <div>
+                  <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Rental Company</label><input value={ifRentalCompany} onChange={e => setIfRentalCompany(e.target.value)} placeholder="Enterprise, Hertz, Turo..." style={inputStyle} /></div>
+                  <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Confirmation Code</label><input value={ifRentalConfirmation} onChange={e => setIfRentalConfirmation(e.target.value)} placeholder="RES123456" style={inputStyle} /></div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Pickup Location</label><input value={ifPickupLocation} onChange={e => setIfPickupLocation(e.target.value)} placeholder="BNA Airport" style={inputStyle} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Pickup Time</label><input type="datetime-local" value={ifPickupTime} onChange={e => setIfPickupTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Dropoff Location</label><input value={ifDropoffLocation} onChange={e => setIfDropoffLocation(e.target.value)} placeholder="BNA Airport" style={inputStyle} /></div>
+                    <div style={{ flex: 1 }}><label style={labelStyle}>Dropoff Time</label><input type="datetime-local" value={ifDropoffTime} onChange={e => setIfDropoffTime(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' } as any} /></div>
+                  </div>
+                  <div style={{ marginBottom: '20px' }}><label style={labelStyle}>Notes (optional)</label><textarea value={ifRentalNotes} onChange={e => setIfRentalNotes(e.target.value)} placeholder="Vehicle type, insurance, etc." rows={2} style={{ ...inputStyle, resize: 'none', fontFamily: 'sans-serif' } as any} /></div>
+                </div>
+              )}
+
+              <button onClick={saveImportToEvent} disabled={saving} style={{ width: '100%', background: saving ? '#333' : activeColor, border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: importFormType === 'lodging' ? '#fff' : '#000', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving ? 'none' : `0 4px 14px ${activeColor}66` }}>
+                {saving ? 'Saving...' : 'Save to Event →'}
+              </button>
+              <button onClick={() => setShowImportForm(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+            </div>
+          </div>
+        )
+      })()}
 
     </main>
   )
