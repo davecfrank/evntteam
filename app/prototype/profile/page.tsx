@@ -18,6 +18,8 @@ export default function Profile() {
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState('')
   const [slugCopied, setSlugCopied] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [phoneVisible, setPhoneVisible] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -28,6 +30,8 @@ export default function Profile() {
       if (profileData) {
         setProfile(profileData)
         setFullName(profileData.full_name || '')
+        setPhone(profileData.phone_number || '')
+        setPhoneVisible(profileData.phone_visible || false)
       } else {
         setFullName(user.email?.split('@')[0] || '')
       }
@@ -43,8 +47,8 @@ export default function Profile() {
 
   async function saveProfile() {
     setSaving(true)
-    await supabase.from('profiles').upsert({ id: user.id, full_name: fullName })
-    setProfile({ ...profile, full_name: fullName })
+    await supabase.from('profiles').upsert({ id: user.id, full_name: fullName, phone_number: phone || null, phone_visible: phoneVisible })
+    setProfile({ ...profile, full_name: fullName, phone_number: phone, phone_visible: phoneVisible })
     setEditing(false)
     setSaving(false)
   }
@@ -136,7 +140,7 @@ export default function Profile() {
   )
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '100px' }}>
+    <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
 
       {/* Header */}
       <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #1A1A1A' }}>
@@ -191,8 +195,32 @@ export default function Profile() {
               <div style={{ fontSize: '22px', fontWeight: 800 }}>{fullName || user?.email?.split('@')[0]}</div>
             )}
             <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>{user?.email}</div>
+            {!editing && phone && (
+              <div style={{ fontSize: '13px', color: '#888', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {phone}
+                {!phoneVisible && <span style={{ fontSize: '10px', color: '#555', fontWeight: 600 }}>(hidden)</span>}
+              </div>
+            )}
           </div>
         </div>
+
+        {editing && (
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Phone Number</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" type="tel"
+              style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }}
+            />
+            <div
+              onClick={() => setPhoneVisible(!phoneVisible)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: '13px', color: '#888' }}>Show phone on public profile</span>
+              <div style={{ width: '36px', height: '20px', borderRadius: '10px', background: phoneVisible ? '#FF4D00' : '#2A2A2A', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: '2px', left: phoneVisible ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {editing && (
           <button onClick={saveProfile} disabled={saving} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '14px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '20px' }}>
@@ -357,22 +385,6 @@ export default function Profile() {
         <button onClick={signOut} style={{ width: '100%', background: 'none', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 600, color: '#666', cursor: 'pointer' }}>
           Sign Out
         </button>
-      </div>
-
-      {/* Bottom Nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
-        {[
-          { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
-          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary' },
-          { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
-          { icon: '💬', label: 'Chat', path: '/prototype/chat' },
-          { icon: '👤', label: 'Profile', path: '/prototype/profile', active: true },
-        ].map(item => (
-          <button key={item.label} onClick={() => router.push(item.path)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: (item as any).active ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
       </div>
 
     </main>

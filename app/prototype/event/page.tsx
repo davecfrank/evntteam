@@ -2138,6 +2138,7 @@ function EventPage() {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const [rsvpExpanded, setRsvpExpanded] = useState<string | null>(null)
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+  const [emailToIdMap, setEmailToIdMap] = useState<Record<string, string>>({})
   const [isDesktop, setIsDesktop] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
@@ -2213,6 +2214,7 @@ function EventPage() {
       userIds.add(user.id)
       if (user.email) emailToId[user.email] = user.id
       if (eventData.owner_id) userIds.add(eventData.owner_id)
+      uniqueMembers.forEach((m: any) => { if (m.user_id) { userIds.add(m.user_id); if (m.user_email) emailToId[m.user_email] = m.user_id } })
       flightsData.forEach((f: any) => { if (f.user_id) { userIds.add(f.user_id); if (f.user_email) emailToId[f.user_email] = f.user_id } })
       lodgingsData.forEach((l: any) => { if (l.user_id) { userIds.add(l.user_id); if (l.user_email) emailToId[l.user_email] = l.user_id } })
       // Also check photos and chat messages for user_id/email pairs
@@ -2231,6 +2233,7 @@ function EventPage() {
       // Cross-reference: map emails to names via emailToId
       Object.entries(emailToId).forEach(([email, id]) => { if (map[id]) map[email] = map[id] })
       setProfileMap(map)
+      setEmailToIdMap(emailToId)
 
       setLoading(false)
     }
@@ -2501,7 +2504,7 @@ function EventPage() {
               {rsvpExpanded && (
                 <div>
                   {rsvpExpanded === 'going' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A' }}>
+                    <div onClick={() => router.push(`/prototype/profile/${user?.id}`)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
                       <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
                       <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(user?.email)}</div>
                       <span style={{ fontSize: '14px' }}>👑</span>
@@ -2518,7 +2521,7 @@ function EventPage() {
                         </div>
                       </div>
                     ) : (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A' }}>
+                      <div key={i} onClick={() => { const uid = emailToIdMap[member.user_email]; if (uid) router.push(`/prototype/profile/${uid}`) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: emailToIdMap[member.user_email] ? 'pointer' : 'default' }}>
                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
                         <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(member.user_email)}</div>
                         <span style={{ fontSize: '14px' }}>{member.role_level === 'cohost' ? '⭐' : '👤'}</span>

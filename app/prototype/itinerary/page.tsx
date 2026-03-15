@@ -39,7 +39,7 @@ export default function Itinerary() {
   const [activeDay, setActiveDay] = useState(0)
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '80px' }}>
+    <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '40px' }}>
 
       {/* Header */}
       <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #1A1A1A' }}>
@@ -93,20 +93,6 @@ export default function Itinerary() {
         </button>
       </div>
 
-      {/* Bottom Nav */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#0A0A0A', borderTop: '1px solid #1A1A1A', display: 'flex', padding: '12px 0 24px' }}>
-        {[
-          { icon: '⌂', label: 'Home', path: '/prototype/dashboard' },
-          { icon: '🗓', label: 'Itinerary', path: '/prototype/itinerary', active: true },
-          { icon: '🗳', label: 'Vote', path: '/prototype/vote' },
-          { icon: '💬', label: 'Chat', path: '/prototype/chat' },
-        ].map(item => (
-          <button key={item.label} onClick={() => router.push(item.path)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: item.active ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-      </div>
     </main>
   )
 }

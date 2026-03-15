@@ -224,9 +224,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Bottom Nav */}
-      {/* Bottom nav hidden for now — will refine later */}
-
       {/* Create Event Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}>
