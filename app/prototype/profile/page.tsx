@@ -329,7 +329,7 @@ function Profile() {
               color: activeTab === tab ? '#FF4D00' : '#666',
               fontSize: '13px', fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize'
             }}>
-              {tab === 'upcoming' ? 'Upcoming' : tab === 'past' ? 'Past' : '✈️ Imports'}
+              {tab === 'upcoming' ? 'Upcoming' : tab === 'past' ? 'Past' : (<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>✈️ Imports{imports.length > 0 && <span style={{ background: '#FF4D00', color: '#fff', fontSize: '10px', fontWeight: 800, borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{imports.length}</span>}</span>)}
             </button>
           ))}
         </div>
