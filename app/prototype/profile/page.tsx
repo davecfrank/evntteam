@@ -225,7 +225,7 @@ export default function Profile() {
                 onClick={() => setPhoneVisible(!phoneVisible)}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#161616', border: `1px solid ${phoneVisible ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', flexShrink: 0 }}
               >
-                <span style={{ fontSize: '12px', color: phoneVisible ? '#FF4D00' : '#555', fontWeight: 600 }}>{phoneVisible ? 'Visible' : 'Hidden'}</span>
+                <span style={{ fontSize: '12px', color: phoneVisible ? '#FF4D00' : '#555', fontWeight: 600 }}>{phoneVisible ? 'Visible' : 'Hide'}</span>
                 <div style={{ width: '32px', height: '18px', borderRadius: '9px', background: phoneVisible ? '#FF4D00' : '#2A2A2A', position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ position: 'absolute', top: '2px', left: phoneVisible ? '16px' : '2px', width: '14px', height: '14px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
                 </div>
