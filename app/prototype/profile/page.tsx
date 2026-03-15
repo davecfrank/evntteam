@@ -13,6 +13,11 @@ export default function Profile() {
   const [fullName, setFullName] = useState('')
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('upcoming')
+  const [imports, setImports] = useState<any[]>([])
+  const [importSlug, setImportSlug] = useState<string | null>(null)
+  const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [selectedEventId, setSelectedEventId] = useState('')
+  const [slugCopied, setSlugCopied] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -28,6 +33,9 @@ export default function Profile() {
       }
       const { data: eventsData } = await supabase.from('events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false })
       setEvents(eventsData || [])
+      if (profileData?.import_email_slug) setImportSlug(profileData.import_email_slug)
+      const { data: importsData } = await supabase.from('pending_imports').select('*').eq('user_id', user.id).eq('status', 'pending').order('created_at', { ascending: false })
+      setImports(importsData || [])
       setLoading(false)
     }
     load()
@@ -44,6 +52,56 @@ export default function Profile() {
   async function signOut() {
     await supabase.auth.signOut()
     router.push('/prototype')
+  }
+
+  async function generateSlug() {
+    const session = await supabase.auth.getSession()
+    const token = session.data.session?.access_token
+    const res = await fetch('/api/generate-import-slug', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const { slug } = await res.json()
+    setImportSlug(slug)
+  }
+
+  async function assignImport(importId: string, eventId: string) {
+    const imp = imports.find((i: any) => i.id === importId)
+    if (!imp || !eventId) return
+    const d = imp.parsed_data
+    let insertTable = ''
+    let payload: any = { event_id: eventId, user_id: user.id, user_email: user.email }
+
+    if (imp.type === 'flight') {
+      insertTable = 'member_flights'
+      payload = { ...payload, airline: d.airline, flight_number: d.flight_number, departure_airport: d.departure_airport, arrival_airport: d.arrival_airport, departure_time: d.departure_time, arrival_time: d.arrival_time, notes: d.notes }
+    } else if (imp.type === 'lodging') {
+      insertTable = 'member_lodging'
+      payload = { ...payload, hotel_name: d.hotel_name, address: d.address, check_in: d.check_in, check_out: d.check_out, confirmation_code: d.confirmation_code, notes: d.notes }
+    } else if (imp.type === 'rental_car') {
+      insertTable = 'member_rental_cars'
+      payload = { ...payload, company: d.company, confirmation_code: d.confirmation_code, pickup_location: d.pickup_location, pickup_time: d.pickup_time, dropoff_location: d.dropoff_location, dropoff_time: d.dropoff_time, notes: d.notes }
+    } else return
+
+    const { error: insertError } = await supabase.from(insertTable).insert(payload)
+    if (insertError) { alert('Failed to add travel data: ' + insertError.message); return }
+
+    await supabase.from('pending_imports').update({ status: 'assigned', assigned_event_id: eventId }).eq('id', importId)
+    setImports(prev => prev.filter((i: any) => i.id !== importId))
+    setAssigningId(null)
+    setSelectedEventId('')
+  }
+
+  async function dismissImport(importId: string) {
+    await supabase.from('pending_imports').update({ status: 'dismissed' }).eq('id', importId)
+    setImports(prev => prev.filter((i: any) => i.id !== importId))
+  }
+
+  function copyImportEmail() {
+    if (!importSlug) return
+    navigator.clipboard.writeText(`${importSlug}@inbox.evnt.team`)
+    setSlugCopied(true)
+    setTimeout(() => setSlugCopied(false), 2000)
   }
 
   const getEmoji = (type: string) => {
@@ -198,6 +256,97 @@ export default function Profile() {
               </div>
             </div>
           ))
+        )}
+      </div>
+
+      {/* Travel Imports Section */}
+      <div style={{ padding: '0 24px 20px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>TRAVEL IMPORTS</div>
+
+        {/* Import email address card */}
+        <div style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <span style={{ fontSize: '18px' }}>📧</span>
+            <div style={{ fontWeight: 700, fontSize: '14px' }}>Your Import Email</div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>Forward flight, hotel, or car rental confirmations to this address to auto-import them.</div>
+          {importSlug ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ flex: 1, background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#FF4D00', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {importSlug}@inbox.evnt.team
+              </div>
+              <button onClick={copyImportEmail} style={{ background: slugCopied ? '#2A2A2A' : '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px 16px', fontSize: '12px', fontWeight: 700, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {slugCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={generateSlug} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: 'pointer', width: '100%' }}>
+              Generate My Import Email
+            </button>
+          )}
+        </div>
+
+        {/* Pending imports list */}
+        {imports.length > 0 && (
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>
+              {imports.length} PENDING IMPORT{imports.length !== 1 ? 'S' : ''}
+            </div>
+            {imports.map((imp: any) => {
+              const d = imp.parsed_data || {}
+              const icon = imp.type === 'flight' ? '✈️' : imp.type === 'lodging' ? '🏨' : imp.type === 'rental_car' ? '🚗' : '📦'
+              const title = imp.type === 'flight'
+                ? `${d.airline || ''} ${d.flight_number || ''}`.trim() || 'Flight'
+                : imp.type === 'lodging'
+                ? d.hotel_name || 'Hotel'
+                : imp.type === 'rental_car'
+                ? d.company || 'Rental Car'
+                : 'Unknown'
+              const subtitle = imp.type === 'flight'
+                ? `${d.departure_airport || '?'} → ${d.arrival_airport || '?'}`
+                : imp.type === 'lodging'
+                ? `${d.check_in || '?'} → ${d.check_out || '?'}`
+                : imp.type === 'rental_car'
+                ? `${d.pickup_location || '?'} → ${d.dropoff_location || '?'}`
+                : imp.raw_subject || 'Could not parse'
+
+              return (
+                <div key={imp.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '16px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,77,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '14px' }}>{title}</div>
+                      <div style={{ fontSize: '12px', color: '#888' }}>{subtitle}</div>
+                    </div>
+                    {imp.type === 'unknown' && <div style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,214,0,0.15)', color: '#FFD600' }}>Needs review</div>}
+                  </div>
+                  {d.confirmation_code && <div style={{ fontSize: '11px', color: '#555', marginBottom: '8px' }}>Confirmation: {d.confirmation_code}</div>}
+
+                  {assigningId === imp.id ? (
+                    <div>
+                      <select value={selectedEventId} onChange={e => setSelectedEventId(e.target.value)} style={{ width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px', fontSize: '13px', color: '#F0F0F0', marginBottom: '10px', outline: 'none' }}>
+                        <option value="">Select an event...</option>
+                        {events.map((ev: any) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                      </select>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => assignImport(imp.id, selectedEventId)} disabled={!selectedEventId} style={{ flex: 1, background: selectedEventId ? '#FF4D00' : '#333', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: selectedEventId ? 'pointer' : 'not-allowed' }}>Confirm</button>
+                        <button onClick={() => { setAssigningId(null); setSelectedEventId('') }} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => setAssigningId(imp.id)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Assign to Event</button>
+                      <button onClick={() => dismissImport(imp.id)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#666', cursor: 'pointer' }}>Dismiss</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {imports.length === 0 && importSlug && (
+          <div style={{ textAlign: 'center', color: '#444', padding: '16px', fontSize: '13px' }}>No pending imports. Forward a confirmation email to get started.</div>
         )}
       </div>
 
