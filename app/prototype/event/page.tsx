@@ -2139,6 +2139,8 @@ function EventPage() {
   const [rsvpExpanded, setRsvpExpanded] = useState<string | null>(null)
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
   const [emailToIdMap, setEmailToIdMap] = useState<Record<string, string>>({})
+  const [myProfile, setMyProfile] = useState<any>(null)
+  const [pendingImportsCount, setPendingImportsCount] = useState(0)
   const [isDesktop, setIsDesktop] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
@@ -2234,6 +2236,12 @@ function EventPage() {
       Object.entries(emailToId).forEach(([email, id]) => { if (map[id]) map[email] = map[id] })
       setProfileMap(map)
       setEmailToIdMap(emailToId)
+
+      // Fetch own profile for avatar + pending imports count
+      const { data: myProfileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
+      if (myProfileData) setMyProfile(myProfileData)
+      const { count } = await supabase.from('pending_imports').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending')
+      setPendingImportsCount(count || 0)
 
       setLoading(false)
     }
@@ -2436,7 +2444,23 @@ function EventPage() {
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '100px' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
-        {isHost && <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>👑 Host</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isHost && <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>👑 Host</div>}
+          <div onClick={() => router.push('/prototype/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
+            {myProfile?.avatar_url ? (
+              <img src={myProfile.avatar_url} alt="profile" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px' }}>
+                {myProfile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+            {pendingImportsCount > 0 && (
+              <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '16px', height: '16px', borderRadius: '50%', background: '#FF4D00', border: '2px solid #0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 800, color: '#fff' }}>
+                {pendingImportsCount}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div style={{ padding: '24px', borderBottom: '1px solid #1A1A1A', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>

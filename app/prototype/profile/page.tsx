@@ -94,15 +94,18 @@ function Profile() {
     } else if (imp.type === 'rental_car') {
       insertTable = 'member_rental_cars'
       payload = { ...payload, company: d.company, confirmation_code: d.confirmation_code, pickup_location: d.pickup_location, pickup_time: d.pickup_time, dropoff_location: d.dropoff_location, dropoff_time: d.dropoff_time, notes: d.notes }
-    } else return
+    }
 
-    const { error: insertError } = await supabase.from(insertTable).insert(payload)
-    if (insertError) { alert('Failed to add travel data: ' + insertError.message); return }
+    if (insertTable) {
+      const { error: insertError } = await supabase.from(insertTable).insert(payload)
+      if (insertError) { alert('Failed to add travel data: ' + insertError.message); return }
+    }
 
     await supabase.from('pending_imports').update({ status: 'assigned', assigned_event_id: eventId }).eq('id', importId)
     setImports(prev => prev.filter((i: any) => i.id !== importId))
     setAssigningId(null)
     setSelectedEventId('')
+    router.push(`/prototype/event?id=${eventId}`)
   }
 
   async function dismissImport(importId: string) {

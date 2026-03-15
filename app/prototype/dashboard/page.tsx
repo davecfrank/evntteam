@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [saving, setSaving] = useState(false)
+  const [pendingImportsCount, setPendingImportsCount] = useState(0)
   const dateRef = useRef<HTMLInputElement>(null)
   const endDateRef = useRef<HTMLInputElement>(null)
 
@@ -39,8 +40,10 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/prototype'); return }
       setUser(user)
-      const { data: profileData } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+      const { data: profileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
       if (profileData) setProfile(profileData)
+      const { count } = await supabase.from('pending_imports').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending')
+      setPendingImportsCount(count || 0)
       const { data } = await supabase
         .from('events')
         .select('*')
@@ -132,8 +135,19 @@ export default function Dashboard() {
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: '22px', fontWeight: 900 }}>Evnt<span style={{ color: '#FF4D00' }}>.Team</span></div>
-        <div onClick={() => router.push('/prototype/profile')} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}>
-          {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+        <div onClick={() => router.push('/prototype/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="profile" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+          ) : (
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px' }}>
+              {profile?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            </div>
+          )}
+          {pendingImportsCount > 0 && (
+            <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '18px', height: '18px', borderRadius: '50%', background: '#FF4D00', border: '2px solid #0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: '#fff' }}>
+              {pendingImportsCount}
+            </div>
+          )}
         </div>
       </div>
 
