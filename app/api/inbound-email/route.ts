@@ -65,7 +65,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const emailContent = fullEmail.text || fullEmail.html || ''
+  // Prefer HTML for forwarded emails (text version often only has forwarding header)
+  // Strip HTML tags to get clean text for Claude
+  let emailContent = ''
+  if (fullEmail.html) {
+    emailContent = fullEmail.html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#\d+;/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+  if (!emailContent && fullEmail.text) {
+    emailContent = fullEmail.text
+  }
   if (!emailContent) {
     return NextResponse.json({ ok: true })
   }
@@ -76,7 +94,7 @@ export async function POST(req: NextRequest) {
   let responseText = ''
   try {
     const parseResponse = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{
         role: 'user',
@@ -108,14 +126,15 @@ ${emailContent.slice(0, 12000)}`,
     })
 
     responseText = parseResponse.content[0].type === 'text' ? parseResponse.content[0].text : ''
-  } catch (err) {
-    console.error('Claude parse failed:', err)
-    // Store as parse failure
+  } catch (err: any) {
+    const errMsg = err?.message || err?.toString() || 'unknown error'
+    console.error('Claude parse failed:', errMsg, 'Status:', err?.status, 'Type:', err?.type)
+    // Store as parse failure with error details for debugging
     await supabaseAdmin.from('pending_imports').insert({
       user_id: profile.id,
       user_email: data.from || '',
       type: 'unknown',
-      parsed_data: {},
+      parsed_data: { error: errMsg, content_length: emailContent.length },
       raw_subject: fullEmail.subject || data.subject,
       raw_from: data.from,
       source_email_id: emailId,
