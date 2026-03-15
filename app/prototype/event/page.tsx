@@ -599,9 +599,9 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
     setRentalNotes(r.notes || ''); setShowRentalModal(true)
   }
 
-  const myFlight = flights.find(f => f.user_id === user.id)
+  const myFlights = flights.filter(f => f.user_id === user.id)
   const otherFlights = flights.filter(f => f.user_id !== user.id)
-  const myLodging = lodgings.find(l => l.user_id === user.id)
+  const myLodgings = lodgings.filter(l => l.user_id === user.id)
   const otherLodgings = lodgings.filter(l => l.user_id !== user.id)
   const hotelGroups = otherLodgings.reduce((acc: any, l) => {
     const key = l.hotel_name || 'Unknown'
@@ -609,7 +609,7 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
     acc[key].push(l)
     return acc
   }, {})
-  const myRental = rentals.find(r => r.user_id === user.id)
+  const myRentals = rentals.filter(r => r.user_id === user.id)
   const otherRentals = rentals.filter(r => r.user_id !== user.id)
 
   const sections = [
@@ -640,13 +640,13 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>✈️ Flight Details</div>
             <button onClick={() => { resetFlightForm(); setShowFlightModal(true) }} style={{ background: '#64B4FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(100, 180, 255, 0.35)' }}>
-              {myFlight ? '✏️ Edit My Flight' : '+ Add My Flight'}
+              + Add Flight
             </button>
           </div>
-          {myFlight ? (
+          {myFlights.length > 0 ? (
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHT</div>
-              <FlightCard flight={myFlight} isOwn onEdit={() => openEditFlight(myFlight)} onDelete={() => deleteFlight(myFlight.id)} getName={getName} />
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64B4FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY FLIGHTS</div>
+              {myFlights.map(f => <FlightCard key={f.id} flight={f} isOwn onEdit={() => openEditFlight(f)} onDelete={() => deleteFlight(f.id)} getName={getName} />)}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
@@ -671,13 +671,13 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🏨 Lodging</div>
             <button onClick={() => { resetLodgingForm(); setShowLodgingModal(true) }} style={{ background: '#B464FF', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(180, 100, 255, 0.35)' }}>
-              {myLodging ? '✏️ Edit My Stay' : '+ Add My Stay'}
+              + Add Stay
             </button>
           </div>
-          {myLodging ? (
+          {myLodgings.length > 0 ? (
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#B464FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY STAY</div>
-              <LodgingCard lodging={myLodging} isOwn onEdit={() => openEditLodging(myLodging)} onDelete={() => deleteLodging(myLodging.id)} />
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#B464FF', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY STAYS</div>
+              {myLodgings.map(l => <LodgingCard key={l.id} lodging={l} isOwn onEdit={() => openEditLodging(l)} onDelete={() => deleteLodging(l.id)} />)}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
@@ -715,13 +715,13 @@ function TravelTab({ eventId, user, members, getName, isDesktop }: { eventId: st
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>🚗 Rental Cars</div>
             <button onClick={() => { resetRentalForm(); setShowRentalModal(true) }} style={{ background: '#4ADE80', border: 'none', borderRadius: '8px', padding: '8px 16px', color: '#000', fontSize: '13px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(74, 222, 128, 0.35)' }}>
-              {myRental ? '✏️ Edit My Rental' : '+ Add My Rental'}
+              + Add Rental
             </button>
           </div>
-          {myRental ? (
+          {myRentals.length > 0 ? (
             <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#4ADE80', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY RENTAL</div>
-              <RentalCarCard rental={myRental} isOwn onEdit={() => openEditRental(myRental)} onDelete={() => deleteRental(myRental.id)} getName={getName} />
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#4ADE80', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>MY RENTALS</div>
+              {myRentals.map(r => <RentalCarCard key={r.id} rental={r} isOwn onEdit={() => openEditRental(r)} onDelete={() => deleteRental(r.id)} getName={getName} />)}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '24px', border: '2px dashed #2A2A2A', borderRadius: '14px', marginBottom: '24px' }}>
