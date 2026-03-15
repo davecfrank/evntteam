@@ -212,20 +212,21 @@ export default function Profile() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', marginTop: '16px' }}>
-          {['upcoming', 'past'].map(tab => (
+          {['upcoming', 'past', 'imports'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               flex: 1, padding: '12px', background: 'none', border: 'none',
               borderBottom: activeTab === tab ? '2px solid #FF4D00' : '2px solid transparent',
               color: activeTab === tab ? '#FF4D00' : '#666',
               fontSize: '13px', fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize'
             }}>
-              {tab === 'upcoming' ? 'Upcoming Events' : 'Past Events'}
+              {tab === 'upcoming' ? 'Upcoming' : tab === 'past' ? 'Past' : '✈️ Imports'}
             </button>
           ))}
         </div>
       </div>
 
       {/* Events List */}
+      {(activeTab === 'upcoming' || activeTab === 'past') && (
       <div style={{ padding: '20px 24px' }}>
         {events.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
@@ -258,11 +259,11 @@ export default function Profile() {
           ))
         )}
       </div>
+      )}
 
-      {/* Travel Imports Section */}
-      <div style={{ padding: '0 24px 20px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>TRAVEL IMPORTS</div>
-
+      {/* Travel Imports Tab */}
+      {activeTab === 'imports' && (
+      <div style={{ padding: '20px 24px' }}>
         {/* Import email address card */}
         <div style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -349,6 +350,7 @@ export default function Profile() {
           <div style={{ textAlign: 'center', color: '#444', padding: '16px', fontSize: '13px' }}>No pending imports. Forward a confirmation email to get started.</div>
         )}
       </div>
+      )}
 
       {/* Sign Out */}
       <div style={{ padding: '0 24px' }}>
