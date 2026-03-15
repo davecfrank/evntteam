@@ -128,6 +128,16 @@ export default function Profile() {
     return `${diff} days away`
   }
 
+  const isEventPast = (event: any) => {
+    const checkDate = event.end_date || event.dates
+    if (!checkDate) return false
+    const d = new Date(checkDate + 'T23:59:59')
+    return !isNaN(d.getTime()) && d < new Date()
+  }
+
+  const upcomingEvents = events.filter(e => !isEventPast(e))
+  const pastEvents = events.filter(e => isEventPast(e))
+
   const getInitials = () => {
     if (fullName) return fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     return user?.email?.[0]?.toUpperCase() || 'U'
@@ -207,16 +217,18 @@ export default function Profile() {
         {editing && (
           <div style={{ marginBottom: '16px' }}>
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Phone Number</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" type="tel"
-              style={{ width: '100%', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }}
-            />
-            <div
-              onClick={() => setPhoneVisible(!phoneVisible)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', cursor: 'pointer' }}
-            >
-              <span style={{ fontSize: '13px', color: '#888' }}>Show phone on public profile</span>
-              <div style={{ width: '36px', height: '20px', borderRadius: '10px', background: phoneVisible ? '#FF4D00' : '#2A2A2A', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: '2px', left: phoneVisible ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" type="tel"
+                style={{ flex: 1, background: '#161616', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
+              />
+              <div
+                onClick={() => setPhoneVisible(!phoneVisible)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#161616', border: `1px solid ${phoneVisible ? '#FF4D00' : '#2A2A2A'}`, borderRadius: '8px', cursor: 'pointer', flexShrink: 0 }}
+              >
+                <span style={{ fontSize: '12px', color: phoneVisible ? '#FF4D00' : '#555', fontWeight: 600 }}>{phoneVisible ? 'Visible' : 'Hidden'}</span>
+                <div style={{ width: '32px', height: '18px', borderRadius: '9px', background: phoneVisible ? '#FF4D00' : '#2A2A2A', position: 'relative', transition: 'background 0.2s' }}>
+                  <div style={{ position: 'absolute', top: '2px', left: phoneVisible ? '16px' : '2px', width: '14px', height: '14px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+                </div>
               </div>
             </div>
           </div>
@@ -230,7 +242,7 @@ export default function Profile() {
 
         {/* Stats */}
         <div style={{ display: 'flex' }}>
-          {[{ label: 'Events', value: events.length }, { label: 'Upcoming', value: events.length }, { label: 'Completed', value: 0 }].map((stat, i) => (
+          {[{ label: 'Events', value: events.length }, { label: 'Upcoming', value: upcomingEvents.length }, { label: 'Completed', value: pastEvents.length }].map((stat, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center', padding: '12px 0', borderRight: i < 2 ? '1px solid #1A1A1A' : 'none' }}>
               <div style={{ fontSize: '22px', fontWeight: 800, color: '#FF4D00' }}>{stat.value}</div>
               <div style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>{stat.label}</div>
@@ -254,18 +266,22 @@ export default function Profile() {
       </div>
 
       {/* Events List */}
-      {(activeTab === 'upcoming' || activeTab === 'past') && (
+      {(activeTab === 'upcoming' || activeTab === 'past') && (() => {
+        const filtered = activeTab === 'upcoming' ? upcomingEvents : pastEvents
+        return (
       <div style={{ padding: '20px 24px' }}>
-        {events.length === 0 ? (
+        {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🎉</div>
-            <div style={{ fontWeight: 700, marginBottom: '8px' }}>No events yet</div>
-            <button onClick={() => router.push('/prototype/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
-              Create Your First Event →
-            </button>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>{activeTab === 'past' ? '✅' : '🎉'}</div>
+            <div style={{ fontWeight: 700, marginBottom: '8px' }}>{activeTab === 'past' ? 'No past events' : 'No upcoming events'}</div>
+            {activeTab === 'upcoming' && (
+              <button onClick={() => router.push('/prototype/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+                Create Your First Event →
+              </button>
+            )}
           </div>
         ) : (
-          events.map(event => (
+          filtered.map(event => (
             <div key={event.id} onClick={() => router.push('/prototype/itinerary')} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
                 {getEmoji(event.event_type)}
@@ -287,7 +303,8 @@ export default function Profile() {
           ))
         )}
       </div>
-      )}
+        )
+      })()}
 
       {/* Travel Imports Tab */}
       {activeTab === 'imports' && (
