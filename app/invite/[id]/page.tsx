@@ -30,26 +30,16 @@ export default function InvitePage() {
 
   useEffect(() => {
     async function load() {
-      // Fetch event
-      const { data: eventData, error: eventError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single()
-
-      if (eventError || !eventData) {
+      // Fetch event via server API (bypasses RLS for unauthenticated users)
+      const res = await fetch(`/api/invite-details?eventId=${eventId}`)
+      if (!res.ok) {
         setError('Event not found')
         setLoading(false)
         return
       }
+      const { event: eventData, memberCount: count } = await res.json()
       setEvent(eventData)
-
-      // Fetch member count
-      const { count } = await supabase
-        .from('event_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', eventId)
-      setMemberCount((count || 0) + 1) // +1 for the host
+      setMemberCount(count)
 
       // Check if user is logged in
       const { data: { user: authUser } } = await supabase.auth.getUser()
