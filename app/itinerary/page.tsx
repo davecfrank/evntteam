@@ -43,7 +43,7 @@ export default function Itinerary() {
 
       {/* Header */}
       <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #1A1A1A' }}>
-        <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px', padding: 0 }}>← Back</button>
+        <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px', padding: 0 }}>← Back</button>
         <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>Jake's Bach Party</h1>
         <p style={{ color: '#666', fontSize: '13px', marginBottom: '16px' }}>Nashville, TN · Jun 13–15 · 8 members</p>
 
@@ -79,7 +79,7 @@ export default function Itinerary() {
               </div>
               <div style={{ fontSize: '12px', color: '#666' }}>{item.detail}</div>
               {item.status === 'vote' && (
-                <button onClick={() => router.push('/prototype/vote')} style={{ marginTop: '10px', background: 'rgba(255,214,0,0.1)', border: '1px solid rgba(255,214,0,0.3)', color: '#FFD600', borderRadius: '8px', padding: '6px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={() => router.push('/vote')} style={{ marginTop: '10px', background: 'rgba(255,214,0,0.1)', border: '1px solid rgba(255,214,0,0.3)', color: '#FFD600', borderRadius: '8px', padding: '6px 12px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
                   Cast Your Vote →
                 </button>
               )}

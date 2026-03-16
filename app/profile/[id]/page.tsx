@@ -1,7 +1,7 @@
 'use client'
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { supabase } from '../../../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 
 export default function PublicProfile() {
   const router = useRouter()
@@ -19,7 +19,7 @@ export default function PublicProfile() {
 
       // If viewing own profile, redirect to full profile page
       if (user && user.id === profileId) {
-        router.replace('/prototype/profile')
+        router.replace('/profile')
         return
       }
 

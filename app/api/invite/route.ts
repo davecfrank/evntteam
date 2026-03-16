@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  const inviteUrl = `https://evnt.team/prototype/invite/${eventId}`
+  const inviteUrl = `https://evnt.team/invite/${eventId}`
 
   const { data, error } = await resend.emails.send({
     from: 'Evnt.Team <noreply@evnt.team>',

@@ -1,8 +1,8 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { supabase } from '../../../lib/supabase'
-import { usePWAInstall } from '../../components/PWAInstallProvider'
+import { supabase } from '../../lib/supabase'
+import { usePWAInstall } from '../components/PWAInstallProvider'
 
 const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }
@@ -2185,11 +2185,11 @@ function EventPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/prototype'); return }
+      if (!user) { router.push('/'); return }
       setUser(user)
-      if (!eventId) { router.push('/prototype/dashboard'); return }
+      if (!eventId) { router.push('/dashboard'); return }
       const { data: eventData } = await supabase.from('events').select('*').eq('id', eventId).single()
-      if (!eventData) { router.push('/prototype/dashboard'); return }
+      if (!eventData) { router.push('/dashboard'); return }
       setEvent(eventData)
       const { data: membersData } = await supabase.from('event_members').select('*').eq('event_id', eventId)
       // Deduplicate by user_email (keep first occurrence)
@@ -2448,10 +2448,10 @@ function EventPage() {
   return (
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif', paddingBottom: '100px' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
-        <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
+        <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isHost && <div style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,77,0,0.15)', color: '#FF4D00' }}>👑 Host</div>}
-          <div onClick={() => router.push('/prototype/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
+          <div onClick={() => router.push('/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
             {myProfile?.avatar_url ? (
               <img src={myProfile.avatar_url} alt="profile" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
@@ -2533,7 +2533,7 @@ function EventPage() {
               {rsvpExpanded && (
                 <div>
                   {rsvpExpanded === 'going' && (
-                    <div onClick={() => router.push(`/prototype/profile/${user?.id}`)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
+                    <div onClick={() => router.push(`/profile/${user?.id}`)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: 'pointer' }}>
                       <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#FF4D00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(user?.email)}</div>
                       <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(user?.email)}</div>
                       <span style={{ fontSize: '14px' }}>👑</span>
@@ -2550,7 +2550,7 @@ function EventPage() {
                         </div>
                       </div>
                     ) : (
-                      <div key={i} onClick={() => { const uid = emailToIdMap[member.user_email]; if (uid) router.push(`/prototype/profile/${uid}`) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: emailToIdMap[member.user_email] ? 'pointer' : 'default' }}>
+                      <div key={i} onClick={() => { const uid = emailToIdMap[member.user_email]; if (uid) router.push(`/profile/${uid}`) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: '#161616', borderRadius: '8px', marginBottom: '4px', border: '1px solid #2A2A2A', cursor: emailToIdMap[member.user_email] ? 'pointer' : 'default' }}>
                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>{getInitial(member.user_email)}</div>
                         <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{getName(member.user_email)}</div>
                         <span style={{ fontSize: '14px' }}>{member.role_level === 'cohost' ? '⭐' : '👤'}</span>

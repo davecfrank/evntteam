@@ -40,7 +40,7 @@ export default function Vote() {
 
       {/* Header */}
       <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #1A1A1A' }}>
-        <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px', padding: 0 }}>← Back</button>
+        <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px', padding: 0 }}>← Back</button>
         <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>Group Vote</h1>
         <p style={{ color: '#666', fontSize: '13px' }}>5 of 8 members have voted</p>
       </div>

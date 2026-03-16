@@ -1,7 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 export default function Chat() {
   const router = useRouter()
@@ -18,7 +18,7 @@ export default function Chat() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/prototype'); return }
+      if (!user) { router.push('/'); return }
       setUser(user)
 
       // Get all events the user owns or is a member of
@@ -127,7 +127,7 @@ export default function Chat() {
             <div style={{ fontWeight: 700, fontSize: '15px' }}>{activeGroup.name}</div>
             <div style={{ fontSize: '11px', color: '#666' }}>{eventName}</div>
           </div>
-          <button onClick={() => router.push(`/prototype/event?id=${activeGroup.event_id}`)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '6px 10px', color: '#666', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={() => router.push(`/event?id=${activeGroup.event_id}`)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '6px 10px', color: '#666', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
             View Event →
           </button>
         </div>
@@ -191,7 +191,7 @@ export default function Chat() {
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>💬</div>
           <div style={{ fontWeight: 700, marginBottom: '8px' }}>No chats yet</div>
           <div style={{ fontSize: '13px', marginBottom: '16px' }}>Create chat groups inside your events</div>
-          <button onClick={() => router.push('/prototype/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+          <button onClick={() => router.push('/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
             Go to Events →
           </button>
         </div>
@@ -203,7 +203,7 @@ export default function Chat() {
             <div key={eventId}>
               {/* Event header */}
               <div
-                onClick={() => router.push(`/prototype/event?id=${eventId}`)}
+                onClick={() => router.push(`/event?id=${eventId}`)}
                 style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px 8px', cursor: 'pointer' }}
               >
                 <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>

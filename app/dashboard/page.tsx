@@ -1,8 +1,8 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../../lib/supabase'
-import { usePWAInstall } from '../../components/PWAInstallProvider'
+import { supabase } from '../../lib/supabase'
+import { usePWAInstall } from '../components/PWAInstallProvider'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -40,7 +40,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/prototype'); return }
+      if (!user) { router.push('/'); return }
       setUser(user)
       const { data: profileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
       if (profileData) setProfile(profileData)
@@ -138,7 +138,7 @@ export default function Dashboard() {
     <main style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0F0F0', fontFamily: 'sans-serif' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: '22px', fontWeight: 900 }}>Evnt<span style={{ color: '#FF4D00' }}>.Team</span></div>
-        <div onClick={() => router.push('/prototype/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
+        <div onClick={() => router.push('/profile')} style={{ position: 'relative', cursor: 'pointer' }}>
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="profile" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
           ) : (
@@ -183,7 +183,7 @@ export default function Dashboard() {
               <>
                 <div style={{ marginBottom: '12px', fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase' }}>Upcoming Events</div>
                 {upcomingEvents.map(event => (
-                  <div key={event.id} onClick={() => router.push(`/prototype/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div key={event.id} onClick={() => router.push(`/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
                       {getEmoji(event.event_type)}
                     </div>
@@ -224,7 +224,7 @@ export default function Dashboard() {
                   <div style={{ fontSize: '12px', color: '#555' }}>{showCompleted ? '▲' : '▼'}</div>
                 </div>
                 {showCompleted && completedEvents.map(event => (
-                  <div key={event.id} onClick={() => router.push(`/prototype/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', opacity: 0.5 }}>
+                  <div key={event.id} onClick={() => router.push(`/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', opacity: 0.5 }}>
                     <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
                       {getEmoji(event.event_type)}
                     </div>

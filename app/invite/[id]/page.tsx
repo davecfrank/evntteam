@@ -1,8 +1,8 @@
 'use client'
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { supabase } from '../../../../lib/supabase'
-import { usePWAInstall } from '../../../components/PWAInstallProvider'
+import { supabase } from '../../../lib/supabase'
+import { usePWAInstall } from '../../components/PWAInstallProvider'
 
 export default function InvitePage() {
   const router = useRouter()
@@ -60,7 +60,7 @@ export default function InvitePage() {
 
         // Check if they're the owner
         if (eventData.owner_id === authUser.id) {
-          router.push(`/prototype/event?id=${eventId}`)
+          router.push(`/event?id=${eventId}`)
           return
         }
 
@@ -86,9 +86,9 @@ export default function InvitePage() {
     if (!user) {
       // Store the invite URL so we can redirect back after login
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('evnt_invite_redirect', `/prototype/invite/${eventId}`)
+        sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
       }
-      router.push('/prototype')
+      router.push('/')
       return
     }
 
@@ -109,11 +109,11 @@ export default function InvitePage() {
     }
 
     signalHighIntent()
-    router.push(`/prototype/event?id=${eventId}`)
+    router.push(`/event?id=${eventId}`)
   }
 
   function goToEvent() {
-    router.push(`/prototype/event?id=${eventId}`)
+    router.push(`/event?id=${eventId}`)
   }
 
   if (loading) {
@@ -142,7 +142,7 @@ export default function InvitePage() {
             This invite link may have expired or the event no longer exists.
           </p>
           <button
-            onClick={() => router.push('/prototype')}
+            onClick={() => router.push('/')}
             style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}
           >
             Go to Evnt.Team →
@@ -240,9 +240,9 @@ export default function InvitePage() {
             <button
               onClick={() => {
                 if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('evnt_invite_redirect', `/prototype/invite/${eventId}`)
+                  sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
                 }
-                router.push('/prototype')
+                router.push('/')
               }}
               style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: 'pointer', marginBottom: '12px', boxShadow: '0 4px 14px rgba(255, 77, 0, 0.4)' }}
             >
@@ -253,9 +253,9 @@ export default function InvitePage() {
               <span
                 onClick={() => {
                   if (typeof window !== 'undefined') {
-                    sessionStorage.setItem('evnt_invite_redirect', `/prototype/invite/${eventId}`)
+                    sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
                   }
-                  router.push('/prototype')
+                  router.push('/')
                 }}
                 style={{ color: '#FF4D00', cursor: 'pointer', fontWeight: 600 }}
               >

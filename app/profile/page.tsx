@@ -1,8 +1,8 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
-import { supabase } from '../../../lib/supabase'
-import { usePWAInstall } from '../../components/PWAInstallProvider'
+import { supabase } from '../../lib/supabase'
+import { usePWAInstall } from '../components/PWAInstallProvider'
 
 export default function ProfilePage() {
   return (
@@ -64,7 +64,7 @@ function Profile() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/prototype'); return }
+      if (!user) { router.push('/'); return }
       setUser(user)
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (profileData) {
@@ -95,7 +95,7 @@ function Profile() {
 
   async function signOut() {
     await supabase.auth.signOut()
-    router.push('/prototype')
+    router.push('/')
   }
 
   async function generateSlug() {
@@ -165,7 +165,7 @@ function Profile() {
     setImports(prev => prev.filter((i: any) => i.id !== importFormImportId))
     setShowImportForm(false)
     setSaving(false)
-    router.push(`/prototype/event?id=${importFormEventId}`)
+    router.push(`/event?id=${importFormEventId}`)
   }
 
   async function dismissImport(importId: string) {
@@ -229,7 +229,7 @@ function Profile() {
 
         {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <button onClick={() => router.push('/prototype/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
+          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#FF4D00', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>← Back</button>
           <button onClick={() => setEditing(!editing)} style={{ background: 'none', border: '1px solid #2A2A2A', color: '#F0F0F0', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '6px 14px', borderRadius: '8px' }}>
             {editing ? 'Cancel' : 'Edit Profile'}
           </button>
@@ -325,7 +325,7 @@ function Profile() {
         {/* Tabs */}
         <div style={{ display: 'flex', marginTop: '16px' }}>
           {['upcoming', 'past', 'imports'].map(tab => (
-            <button key={tab} onClick={() => { setActiveTab(tab); router.replace(`/prototype/profile?tab=${tab}`, { scroll: false }) }} style={{
+            <button key={tab} onClick={() => { setActiveTab(tab); router.replace(`/profile?tab=${tab}`, { scroll: false }) }} style={{
               flex: 1, padding: '12px', background: 'none', border: 'none',
               borderBottom: activeTab === tab ? '2px solid #FF4D00' : '2px solid transparent',
               color: activeTab === tab ? '#FF4D00' : '#666',
@@ -347,14 +347,14 @@ function Profile() {
             <div style={{ fontSize: '40px', marginBottom: '12px' }}>{activeTab === 'past' ? '✅' : '🎉'}</div>
             <div style={{ fontWeight: 700, marginBottom: '8px' }}>{activeTab === 'past' ? 'No past events' : 'No upcoming events'}</div>
             {activeTab === 'upcoming' && (
-              <button onClick={() => router.push('/prototype/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+              <button onClick={() => router.push('/dashboard')} style={{ background: '#FF4D00', border: 'none', borderRadius: '10px', padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
                 Create Your First Event →
               </button>
             )}
           </div>
         ) : (
           filtered.map(event => (
-            <div key={event.id} onClick={() => router.push('/prototype/itinerary')} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div key={event.id} onClick={() => router.push('/itinerary')} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
                 {getEmoji(event.event_type)}
               </div>
