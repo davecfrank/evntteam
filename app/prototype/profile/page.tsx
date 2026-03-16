@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { usePWAInstall } from '../../components/PWAInstallProvider'
 
 export default function ProfilePage() {
   return (
@@ -14,6 +15,7 @@ export default function ProfilePage() {
 function Profile() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { canInstall, isIOS, isStandalone, triggerInstall } = usePWAInstall()
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -465,6 +467,21 @@ function Profile() {
           <div style={{ textAlign: 'center', color: '#444', padding: '16px', fontSize: '13px' }}>No pending imports. Forward a confirmation email to get started.</div>
         )}
       </div>
+      )}
+
+      {/* Install App */}
+      {(canInstall || (isIOS && !isStandalone)) && (
+        <div style={{ padding: '0 24px', marginBottom: '12px' }}>
+          <button onClick={isIOS ? undefined : triggerInstall} style={{
+            width: '100%', background: 'rgba(255, 77, 0, 0.08)',
+            border: '1px solid rgba(255, 77, 0, 0.3)', borderRadius: '12px',
+            padding: '14px', fontSize: '14px', fontWeight: 600,
+            color: '#FF4D00', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}>
+            <span style={{ fontSize: '18px' }}>📲</span> Install App
+          </button>
+        </div>
       )}
 
       {/* Sign Out */}

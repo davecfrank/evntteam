@@ -2,9 +2,11 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { usePWAInstall } from '../../components/PWAInstallProvider'
 
 export default function Dashboard() {
   const router = useRouter()
+  const { signalHighIntent } = usePWAInstall()
   const [showModal, setShowModal] = useState(false)
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +82,7 @@ export default function Dashboard() {
       setName(''); setDescription(''); setDestination(''); setDates(''); setEndDate('')
       setEventTime(''); setInvitePermission('admin_only')
       setRequiresTravel(false); setPaymentsEnabled(true); setVotingEnabled(true)
+      signalHighIntent()
     }
     setSaving(false)
   }

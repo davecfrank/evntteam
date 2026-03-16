@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#FF4D00">
+  <title>evnt.team - Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0A0A0A;
+      color: #F0F0F0;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 40px 24px;
+    }
+    .logo {
+      font-size: 32px;
+      font-weight: 900;
+      margin-bottom: 40px;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: #FF4D00; }
+    .icon {
+      font-size: 56px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 300px;
+      margin-bottom: 36px;
+    }
+    button {
+      background: #FF4D00;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 44px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:active { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="logo">Evnt<span>.Team</span></div>
+  <div class="icon">📡</div>
+  <h1>You're offline</h1>
+  <p>Check your connection and try again. Your recent activity will sync when you're back online.</p>
+  <button onclick="location.reload()">Try Again</button>
+</body>
+</html>

@@ -2,10 +2,12 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../../lib/supabase'
+import { usePWAInstall } from '../../../components/PWAInstallProvider'
 
 export default function InvitePage() {
   const router = useRouter()
   const params = useParams()
+  const { signalHighIntent } = usePWAInstall()
   const eventId = params.id as string
 
   const [event, setEvent] = useState<any>(null)
@@ -106,6 +108,7 @@ export default function InvitePage() {
       return
     }
 
+    signalHighIntent()
     router.push(`/prototype/event?id=${eventId}`)
   }
 

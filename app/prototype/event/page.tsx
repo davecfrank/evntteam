@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { usePWAInstall } from '../../components/PWAInstallProvider'
 
 const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }
@@ -2120,6 +2121,7 @@ function PhotosTab({ eventId, user, event, members, getName, canInteract }: { ev
 function EventPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { signalHighIntent } = usePWAInstall()
   const eventId = searchParams.get('id')
 
   const [user, setUser] = useState<any>(null)
@@ -2352,7 +2354,10 @@ function EventPage() {
   async function updateRsvp(status: 'going' | 'maybe' | 'not_going') {
     if (!myMembership) return
     const { error } = await supabase.from('event_members').update({ rsvp_status: status }).eq('id', myMembership.id)
-    if (!error) setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
+    if (!error) {
+      setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
+      if (status === 'going') signalHighIntent()
+    }
   }
 
   const eventTypes = [
