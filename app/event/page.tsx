@@ -1430,6 +1430,7 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
   const isCohost = members.some(m => m.user_email === user?.email && m.role_level === 'cohost')
   const canConfirm = isHost || isCohost
 
+  // Itinerary vote edit state
   const [showEditModal, setShowEditModal] = useState(false)
   const [editItem, setEditItem] = useState<any>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -1445,6 +1446,18 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
   const [saving, setSaving] = useState(false)
   const categories = [{ value: 'activity', label: '🎯 Activity' }, { value: 'food', label: '🍽 Food' }, { value: 'transport', label: '🚗 Transport' }, { value: 'lodging', label: '🏨 Lodging' }, { value: 'flight', label: '✈️ Flight' }, { value: 'other', label: '✨ Other' }]
 
+  // Poll state
+  const [polls, setPolls] = useState<any[]>([])
+  const [pollOptions, setPollOptions] = useState<Record<string, any[]>>({})
+  const [pollVotes, setPollVotes] = useState<Record<string, any[]>>({})
+  const [pollsLoading, setPollsLoading] = useState(true)
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptionInputs, setPollOptionInputs] = useState<string[]>(['', ''])
+  const [pollSaving, setPollSaving] = useState(false)
+  const [confirmDeletePoll, setConfirmDeletePoll] = useState<string | null>(null)
+
+  // Load itinerary votes
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from('itinerary_items').select('*').eq('event_id', eventId).eq('is_votable', true).order('date', { ascending: true })
@@ -1466,6 +1479,22 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
     load()
   }, [eventId])
 
+  // Load polls via server API
+  useEffect(() => {
+    async function loadPolls() {
+      const res = await fetch(`/api/polls?eventId=${eventId}&userId=${user.id}&userEmail=${encodeURIComponent(user.email)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPolls(data.polls || [])
+        setPollOptions(data.options || {})
+        setPollVotes(data.votes || {})
+      }
+      setPollsLoading(false)
+    }
+    loadPolls()
+  }, [eventId, user.id])
+
+  // Itinerary vote functions
   async function confirmItem(itemId: string) {
     const { data } = await supabase.from('itinerary_items').update({ is_booked: true, is_votable: false }).eq('id', itemId).select().single()
     if (data) setItems(prev => prev.filter(i => i.id !== itemId))
@@ -1492,7 +1521,6 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
 
     setVotes(prev => ({ ...prev, [itemId]: newItemVotes }))
 
-    // Auto-confirm check
     const item = items.find(i => i.id === itemId)
     if (item?.confirm_mode === 'auto') {
       const upCount = newItemVotes.filter(v => v.vote === 'up').length
@@ -1533,68 +1561,235 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
 
   const getCategoryEmoji = (cat: string) => ({ activity: '🎯', food: '🍽', transport: '🚗', lodging: '🏨', flight: '✈️', other: '✨' } as any)[cat] || '✨'
 
-  if (loading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+  // Poll functions
+  async function createPoll() {
+    const validOptions = pollOptionInputs.filter(o => o.trim())
+    if (!pollQuestion.trim() || validOptions.length < 2) return
+    setPollSaving(true)
+    const res = await fetch('/api/polls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId, userId: user.id, userEmail: user.email, question: pollQuestion.trim(), options: validOptions.map(o => o.trim()) })
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setPolls(prev => [data.poll, ...prev])
+      setPollOptions(prev => ({ ...prev, [data.poll.id]: data.options }))
+      setPollVotes(prev => ({ ...prev, [data.poll.id]: [] }))
+    }
+    setPollQuestion(''); setPollOptionInputs(['', '']); setShowCreatePoll(false); setPollSaving(false)
+  }
 
-  if (items.length === 0) {
+  async function castPollVote(pollId: string, optionId: string) {
+    const currentVotes = pollVotes[pollId] || []
+    const myVote = currentVotes.find(v => v.user_id === user.id)
+
+    // Optimistic update
+    let newVotes: any[]
+    if (myVote && myVote.option_id === optionId) {
+      newVotes = currentVotes.filter(v => v.user_id !== user.id)
+    } else {
+      newVotes = [...currentVotes.filter(v => v.user_id !== user.id), { poll_id: pollId, option_id: optionId, user_id: user.id, user_email: user.email }]
+    }
+    setPollVotes(prev => ({ ...prev, [pollId]: newVotes }))
+
+    await fetch('/api/poll-vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pollId, optionId, eventId, userId: user.id, userEmail: user.email })
+    })
+  }
+
+  async function closePoll(pollId: string) {
+    await fetch('/api/poll-manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'close', pollId, userId: user.id })
+    })
+    setPolls(prev => prev.map(p => p.id === pollId ? { ...p, is_closed: true } : p))
+  }
+
+  async function deletePoll(pollId: string) {
+    await fetch('/api/poll-manage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', pollId, userId: user.id })
+    })
+    setPolls(prev => prev.filter(p => p.id !== pollId))
+    setConfirmDeletePoll(null)
+  }
+
+  const canManagePoll = (poll: any) => poll.created_by === user.id || isHost || isCohost
+
+  if (loading || pollsLoading) return <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>Loading...</div>
+
+  if (items.length === 0 && polls.length === 0) {
     return (
-      <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗳</div>
-        <div style={{ fontWeight: 700, marginBottom: '8px' }}>No items up for vote</div>
-        <div style={{ fontSize: '13px' }}>Mark itinerary items as &quot;Open to Group Vote&quot; to see them here</div>
+      <div>
+        {canInteract && (
+          <button onClick={() => setShowCreatePoll(true)} style={{ width: '100%', background: 'rgba(255,77,0,0.08)', border: '1px dashed rgba(255,77,0,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '16px' }}>+ Create a Poll</button>
+        )}
+        <div style={{ textAlign: 'center', color: '#666', padding: '40px', border: '2px dashed #2A2A2A', borderRadius: '14px' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗳</div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>No polls or vote items yet</div>
+          <div style={{ fontSize: '13px' }}>Create a poll or mark itinerary items as &quot;Open to Group Vote&quot;</div>
+        </div>
+
+        {showCreatePoll && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }} onClick={e => { if (e.target === e.currentTarget) { setShowCreatePoll(false); setPollQuestion(''); setPollOptionInputs(['', '']) } }}>
+            <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+              <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+              <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Create Poll</h2>
+              <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Question *</label><input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} placeholder="Where should we eat dinner?" style={inputStyle} /></div>
+              <label style={labelStyle}>Options *</label>
+              {pollOptionInputs.map((opt, i) => (
+                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input value={opt} onChange={e => { const u = [...pollOptionInputs]; u[i] = e.target.value; setPollOptionInputs(u) }} placeholder={`Option ${i + 1}`} style={{ ...inputStyle, flex: 1 }} />
+                  {pollOptionInputs.length > 2 && (
+                    <button onClick={() => setPollOptionInputs(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '0 12px', color: '#FF4D00', cursor: 'pointer', fontSize: '16px' }}>x</button>
+                  )}
+                </div>
+              ))}
+              {pollOptionInputs.length < 10 && (
+                <button onClick={() => setPollOptionInputs(prev => [...prev, ''])} style={{ width: '100%', background: 'rgba(255,77,0,0.08)', border: '1px dashed rgba(255,77,0,0.3)', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '20px' }}>+ Add Option</button>
+              )}
+              <button onClick={createPoll} disabled={pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2} style={{ width: '100%', background: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>{pollSaving ? 'Creating...' : 'Create Poll'}</button>
+              <button onClick={() => { setShowCreatePoll(false); setPollQuestion(''); setPollOptionInputs(['', '']) }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   return (
     <div>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '16px' }}>{items.length} {items.length === 1 ? 'Item' : 'Items'} Up For Vote</div>
-      {items.map(item => {
-        const itemVotes = votes[item.id] || []
-        const ups = itemVotes.filter(v => v.vote === 'up').length
-        const downs = itemVotes.filter(v => v.vote === 'down').length
-        const totalVotes = itemVotes.length
-        const pct = memberCount > 0 ? Math.round((ups / memberCount) * 100) : 0
-        const myVote = itemVotes.find(v => v.user_id === user.id)?.vote
+      {/* Create Poll button */}
+      {canInteract && (
+        <button onClick={() => setShowCreatePoll(true)} style={{ width: '100%', background: 'rgba(255,77,0,0.08)', border: '1px dashed rgba(255,77,0,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '16px' }}>+ Create a Poll</button>
+      )}
 
-        return (
-          <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', marginBottom: '12px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 16px 12px' }}>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>
-                {getCategoryEmoji(item.category)} {item.category}
-              </div>
-              <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {item.title}
-                {item.confirm_mode === 'auto' && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.12)', color: '#00E676' }}>AUTO</span>}
-              </div>
-              <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {item.date && <span>📅 {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
-                {item.location && <span>📍 {item.location}</span>}
-              </div>
-              {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>{item.description}</div>}
-            </div>
-            <div style={{ height: '3px', background: '#2A2A2A' }}>
-              <div style={{ height: '100%', background: 'linear-gradient(90deg, #FF4D00, #FFD600)', width: `${pct}%`, transition: 'width 0.3s' }} />
-            </div>
-            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: '12px', color: '#666', fontFamily: 'monospace' }}>
-                {ups} Yes · {downs} No · {totalVotes}/{memberCount} voted
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {canConfirm && <button onClick={() => openVoteEdit(item)} style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: '#0A0A0A', color: '#F0F0F0', transition: 'background 0.2s' }}>✏️</button>}
-                {canConfirm && (item.confirm_mode || 'manual') === 'manual' && totalVotes > 0 && (
-                  <button onClick={() => confirmItem(item.id)} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: 'rgba(0,230,118,0.2)', color: '#00E676', transition: 'background 0.2s' }}>Confirm ✓</button>
-                )}
-                {canInteract ? (<>
-                <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
-                <button onClick={() => castVote(item.id, 'up')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'up' ? '#00E676' : 'rgba(0,230,118,0.15)', transition: 'background 0.2s' }}>👍</button>
-                </>) : <div style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>RSVP to vote</div>}
-              </div>
-            </div>
-          </div>
-        )
-      })}
+      {/* Polls section */}
+      {polls.length > 0 && (
+        <>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>{polls.length} {polls.length === 1 ? 'Poll' : 'Polls'}</div>
+          {polls.map(poll => {
+            const opts = pollOptions[poll.id] || []
+            const pvotes = pollVotes[poll.id] || []
+            const totalVotes = pvotes.length
+            const myPollVote = pvotes.find(v => v.user_id === user.id)
 
+            return (
+              <div key={poll.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', marginBottom: '12px', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 16px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: poll.is_closed ? '#666' : '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase' }}>POLL{poll.is_closed ? ' (CLOSED)' : ''}</span>
+                    </div>
+                    {canManagePoll(poll) && (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {!poll.is_closed && (
+                          <button onClick={() => closePoll(poll.id)} style={{ padding: '4px 10px', borderRadius: '8px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '11px', fontWeight: 700, background: '#0A0A0A', color: '#666' }}>Close</button>
+                        )}
+                        {confirmDeletePoll === poll.id ? (
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <button onClick={() => deletePoll(poll.id)} style={{ padding: '4px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 700, background: 'rgba(255,77,0,0.2)', color: '#FF4D00' }}>Confirm</button>
+                            <button onClick={() => setConfirmDeletePoll(null)} style={{ padding: '4px 10px', borderRadius: '8px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '11px', fontWeight: 700, background: '#0A0A0A', color: '#666' }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeletePoll(poll.id)} style={{ padding: '4px 10px', borderRadius: '8px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '11px', fontWeight: 700, background: '#0A0A0A', color: '#666' }}>Delete</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '14px' }}>{poll.question}</div>
+
+                  {/* Poll options with progress bars */}
+                  {opts.map(option => {
+                    const optVoteCount = pvotes.filter(v => v.option_id === option.id).length
+                    const pct = totalVotes > 0 ? Math.round((optVoteCount / totalVotes) * 100) : 0
+                    const isMyVote = myPollVote?.option_id === option.id
+                    const isClickable = !poll.is_closed && canInteract
+
+                    return (
+                      <div key={option.id} onClick={() => isClickable && castPollVote(poll.id, option.id)} style={{ marginBottom: '8px', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${isMyVote ? '#FF4D00' : '#2A2A2A'}`, cursor: isClickable ? 'pointer' : 'default', position: 'relative', transition: 'border-color 0.2s' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${pct}%`, background: isMyVote ? 'rgba(255,77,0,0.15)' : 'rgba(255,255,255,0.04)', transition: 'width 0.3s' }} />
+                        <div style={{ position: 'relative', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {isMyVote && <span style={{ color: '#FF4D00', fontSize: '14px', fontWeight: 700 }}>&#10003;</span>}
+                            <span style={{ fontSize: '14px', fontWeight: isMyVote ? 700 : 500, color: '#F0F0F0' }}>{option.label}</span>
+                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#666', fontFamily: 'monospace' }}>{optVoteCount} ({pct}%)</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', fontFamily: 'monospace' }}>
+                    {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
+                  </div>
+                  {!canInteract && !poll.is_closed && <div style={{ fontSize: '11px', color: '#666', fontWeight: 600, marginTop: '6px' }}>RSVP to vote</div>}
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* Itinerary votes section */}
+      {items.length > 0 && (
+        <>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px', marginTop: polls.length > 0 ? '20px' : '0' }}>{items.length} {items.length === 1 ? 'Item' : 'Items'} Up For Vote</div>
+          {items.map(item => {
+            const itemVotes = votes[item.id] || []
+            const ups = itemVotes.filter(v => v.vote === 'up').length
+            const downs = itemVotes.filter(v => v.vote === 'down').length
+            const totalVotes = itemVotes.length
+            const pct = memberCount > 0 ? Math.round((ups / memberCount) * 100) : 0
+            const myVote = itemVotes.find(v => v.user_id === user.id)?.vote
+
+            return (
+              <div key={item.id} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', marginBottom: '12px', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 16px 12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#FF4D00', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>
+                    {getCategoryEmoji(item.category)} {item.category}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item.title}
+                    {item.confirm_mode === 'auto' && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(0,230,118,0.12)', color: '#00E676' }}>AUTO</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {item.date && <span>📅 {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                    {item.start_time && <span>🕐 {formatTime(item.start_time)}{item.end_time ? ` – ${formatTime(item.end_time)}` : ''}</span>}
+                    {item.location && <span>📍 {item.location}</span>}
+                  </div>
+                  {item.description && <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>{item.description}</div>}
+                </div>
+                <div style={{ height: '3px', background: '#2A2A2A' }}>
+                  <div style={{ height: '100%', background: 'linear-gradient(90deg, #FF4D00, #FFD600)', width: `${pct}%`, transition: 'width 0.3s' }} />
+                </div>
+                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '12px', color: '#666', fontFamily: 'monospace' }}>
+                    {ups} Yes · {downs} No · {totalVotes}/{memberCount} voted
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {canConfirm && <button onClick={() => openVoteEdit(item)} style={{ padding: '8px 10px', borderRadius: '10px', border: '1px solid #2A2A2A', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: '#0A0A0A', color: '#F0F0F0', transition: 'background 0.2s' }}>✏️</button>}
+                    {canConfirm && (item.confirm_mode || 'manual') === 'manual' && totalVotes > 0 && (
+                      <button onClick={() => confirmItem(item.id)} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: 'rgba(0,230,118,0.2)', color: '#00E676', transition: 'background 0.2s' }}>Confirm ✓</button>
+                    )}
+                    {canInteract ? (<>
+                    <button onClick={() => castVote(item.id, 'down')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'down' ? 'rgba(255,77,0,0.4)' : 'rgba(255,77,0,0.1)', transition: 'background 0.2s' }}>👎</button>
+                    <button onClick={() => castVote(item.id, 'up')} style={{ width: '40px', height: '40px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontSize: '16px', background: myVote === 'up' ? '#00E676' : 'rgba(0,230,118,0.15)', transition: 'background 0.2s' }}>👍</button>
+                    </>) : <div style={{ fontSize: '11px', color: '#666', fontWeight: 600 }}>RSVP to vote</div>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
+
+      {/* Edit vote item modal */}
       {showEditModal && editItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
           <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
@@ -1626,6 +1821,31 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
             <button onClick={saveEdit} disabled={saving || !editTitle.trim()} style={{ width: '100%', background: saving || !editTitle.trim() ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: saving || !editTitle.trim() ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: saving || !editTitle.trim() ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>{saving ? 'Saving...' : 'Save Changes →'}</button>
             <button onClick={() => deleteVoteItem(editItem.id)} style={{ width: '100%', background: 'none', border: '1px solid rgba(255,77,0,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '12px' }}>🗑 Delete Item</button>
             <button onClick={() => { setShowEditModal(false); resetEditForm() }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Create poll modal */}
+      {showCreatePoll && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }} onClick={e => { if (e.target === e.currentTarget) { setShowCreatePoll(false); setPollQuestion(''); setPollOptionInputs(['', '']) } }}>
+          <div style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', border: '1px solid #2A2A2A', maxHeight: '90vh', overflowY: 'auto', boxSizing: 'border-box' }}>
+            <div style={{ width: '36px', height: '4px', background: '#333', borderRadius: '2px', margin: '0 auto 24px' }} />
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '20px' }}>Create Poll</h2>
+            <div style={{ marginBottom: '14px' }}><label style={labelStyle}>Question *</label><input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} placeholder="Where should we eat dinner?" style={inputStyle} /></div>
+            <label style={labelStyle}>Options *</label>
+            {pollOptionInputs.map((opt, i) => (
+              <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input value={opt} onChange={e => { const u = [...pollOptionInputs]; u[i] = e.target.value; setPollOptionInputs(u) }} placeholder={`Option ${i + 1}`} style={{ ...inputStyle, flex: 1 }} />
+                {pollOptionInputs.length > 2 && (
+                  <button onClick={() => setPollOptionInputs(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '0 12px', color: '#FF4D00', cursor: 'pointer', fontSize: '16px' }}>x</button>
+                )}
+              </div>
+            ))}
+            {pollOptionInputs.length < 10 && (
+              <button onClick={() => setPollOptionInputs(prev => [...prev, ''])} style={{ width: '100%', background: 'rgba(255,77,0,0.08)', border: '1px dashed rgba(255,77,0,0.3)', borderRadius: '10px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer', marginBottom: '20px' }}>+ Add Option</button>
+            )}
+            <button onClick={createPoll} disabled={pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2} style={{ width: '100%', background: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? '#333' : '#FF4D00', border: 'none', borderRadius: '12px', padding: '16px', fontSize: '16px', fontWeight: 700, color: '#fff', cursor: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? 'not-allowed' : 'pointer', marginBottom: '12px', boxShadow: (pollSaving || !pollQuestion.trim() || pollOptionInputs.filter(o => o.trim()).length < 2) ? 'none' : '0 4px 14px rgba(255, 77, 0, 0.4)' }}>{pollSaving ? 'Creating...' : 'Create Poll'}</button>
+            <button onClick={() => { setShowCreatePoll(false); setPollQuestion(''); setPollOptionInputs(['', '']) }} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
           </div>
         </div>
       )}
