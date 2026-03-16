@@ -2406,34 +2406,16 @@ function EventPage() {
   const [deleting, setDeleting] = useState(false)
 
   async function deleteEvent() {
-    if (!eventId) return
+    if (!eventId || !user) return
     setDeleting(true)
     try {
-      // 1. Delete photo-related data (no event_id column — need photo IDs first)
-      const { data: photos } = await supabase.from('event_photos').select('id').eq('event_id', eventId)
-      if (photos && photos.length > 0) {
-        const photoIds = photos.map(p => p.id)
-        const { data: comments } = await supabase.from('photo_comments').select('id').in('photo_id', photoIds)
-        if (comments && comments.length > 0) {
-          await supabase.from('comment_reactions').delete().in('comment_id', comments.map(c => c.id))
-        }
-        await supabase.from('photo_comments').delete().in('photo_id', photoIds)
-        await supabase.from('photo_reactions').delete().in('photo_id', photoIds)
-      }
-      // 2. Delete tables with event_id column
-      const tables = [
-        'event_photos', 'item_votes', 'itinerary_items',
-        'bill_splits', 'bills',
-        'member_flights', 'member_lodging', 'member_rental_cars',
-        'event_announcements', 'event_members',
-        'chat_messages', 'chat_groups',
-      ]
-      for (const table of tables) {
-        await supabase.from(table).delete().eq('event_id', eventId)
-      }
-      // 3. Delete the event itself
-      const { error } = await supabase.from('events').delete().eq('id', eventId)
-      if (error) throw error
+      const res = await fetch('/api/delete-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, userId: user.id }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Failed to delete event')
       router.push('/dashboard')
     } catch (err: any) {
       setEditError('Failed to delete event: ' + err.message)
