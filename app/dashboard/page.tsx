@@ -77,6 +77,13 @@ export default function Dashboard() {
       .select()
       .single()
     if (!error && data) {
+      // Auto-create default group chat for the event
+      await supabase.from('chat_groups').insert({
+        event_id: data.id,
+        name: 'Group Chat',
+        created_by: user.id,
+        auto_created: true,
+      })
       setEvents(prev => [data, ...prev])
       setShowModal(false)
       setName(''); setDescription(''); setDestination(''); setDates(''); setEndDate('')

@@ -1159,7 +1159,23 @@ function ChatTab({ eventId, user, members, flights, lodgings, getName, isDesktop
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from('chat_groups').select('*').eq('event_id', eventId).order('created_at', { ascending: true })
-      setGroups(data || [])
+      if (!data || data.length === 0) {
+        // Auto-create default group chat for events that don't have one
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (currentUser) {
+          const { data: newGroup } = await supabase.from('chat_groups').insert({
+            event_id: eventId,
+            name: 'Group Chat',
+            created_by: currentUser.id,
+            auto_created: true,
+          }).select().single()
+          setGroups(newGroup ? [newGroup] : [])
+        } else {
+          setGroups([])
+        }
+      } else {
+        setGroups(data)
+      }
       setLoading(false)
     }
     load()
