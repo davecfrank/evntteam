@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 import { usePWAInstall } from './components/PWAInstallProvider'
@@ -20,11 +20,22 @@ export default function Login() {
     // Check for non-Safari browsers on iOS
     return /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)
   }, [])
+  const [inviteEventName, setInviteEventName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Default to Sign Up mode when coming from an invite
+  useEffect(() => {
+    const eid = sessionStorage.getItem('evnt_invite_event_id')
+    const ename = sessionStorage.getItem('evnt_invite_event_name')
+    if (eid) {
+      setIsSignUp(true)
+      if (ename) setInviteEventName(ename)
+    }
+  }, [])
 
   async function handleSubmit() {
     setLoading(true)
@@ -40,13 +51,41 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
-      // Check if user came from an invite link
-      const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('evnt_invite_redirect') : null
-      if (redirect) {
+      // Check if user came from an invite link — auto-join the event
+      const pendingEventId = typeof window !== 'undefined' ? sessionStorage.getItem('evnt_invite_event_id') : null
+      if (pendingEventId) {
+        sessionStorage.removeItem('evnt_invite_event_id')
+        sessionStorage.removeItem('evnt_invite_event_name')
         sessionStorage.removeItem('evnt_invite_redirect')
-        router.push(redirect)
+
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (authUser) {
+          // Check if already a member (pre-added by email invite)
+          const { data: existing } = await supabase
+            .from('event_members')
+            .select('id')
+            .eq('event_id', pendingEventId)
+            .eq('user_email', authUser.email)
+            .maybeSingle()
+
+          if (!existing) {
+            await supabase.from('event_members').insert({
+              event_id: pendingEventId,
+              user_email: authUser.email,
+              role: 'Member',
+              role_level: 'member',
+            })
+          }
+        }
+        router.push(`/event?id=${pendingEventId}`)
       } else {
-        router.push('/dashboard')
+        const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('evnt_invite_redirect') : null
+        if (redirect) {
+          sessionStorage.removeItem('evnt_invite_redirect')
+          router.push(redirect)
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (err: any) {
       setError(err.message)
@@ -158,9 +197,15 @@ export default function Login() {
         background: '#161616', border: '1px solid #2A2A2A', borderRadius: '16px',
         padding: '32px', width: '100%', maxWidth: '400px'
       }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: inviteEventName ? '12px' : '24px' }}>
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </h2>
+
+        {inviteEventName && (
+          <p style={{ fontSize: '14px', color: '#999', marginBottom: '24px', lineHeight: 1.4 }}>
+            {isSignUp ? 'Sign up' : 'Sign in'} to join <span style={{ color: '#FF4D00', fontWeight: 700 }}>{inviteEventName}</span>
+          </p>
+        )}
 
         {isSignUp && (
           <div style={{ marginBottom: '14px' }}>

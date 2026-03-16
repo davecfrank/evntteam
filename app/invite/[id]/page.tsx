@@ -84,9 +84,11 @@ export default function InvitePage() {
 
   async function joinEvent() {
     if (!user) {
-      // Store the invite URL so we can redirect back after login
+      // Store invite info so login page can auto-join
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
+        sessionStorage.setItem('evnt_invite_event_id', eventId)
+        sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
       }
       router.push('/')
       return
@@ -241,6 +243,8 @@ export default function InvitePage() {
               onClick={() => {
                 if (typeof window !== 'undefined') {
                   sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
+                  sessionStorage.setItem('evnt_invite_event_id', eventId)
+                  sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
                 }
                 router.push('/')
               }}
@@ -254,6 +258,8 @@ export default function InvitePage() {
                 onClick={() => {
                   if (typeof window !== 'undefined') {
                     sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
+                    sessionStorage.setItem('evnt_invite_event_id', eventId)
+                    sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
                   }
                   router.push('/')
                 }}
