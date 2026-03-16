@@ -46,11 +46,38 @@ export default function Dashboard() {
       if (profileData) setProfile(profileData)
       const { count } = await supabase.from('pending_imports').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending')
       setPendingImportsCount(count || 0)
-      const { data } = await supabase
+      // Fetch events the user owns
+      const { data: ownedEvents } = await supabase
         .from('events')
         .select('*')
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
-      setEvents(data || [])
+
+      // Fetch events the user is a member of
+      const { data: memberships } = await supabase
+        .from('event_members')
+        .select('event_id')
+        .eq('user_email', user.email)
+
+      let memberEvents: any[] = []
+      if (memberships && memberships.length > 0) {
+        const memberEventIds = memberships.map(m => m.event_id)
+        const { data: mEvents } = await supabase
+          .from('events')
+          .select('*')
+          .in('id', memberEventIds)
+          .order('created_at', { ascending: false })
+        memberEvents = mEvents || []
+      }
+
+      // Combine and deduplicate (owner could also be a member)
+      const ownedIds = new Set((ownedEvents || []).map(e => e.id))
+      const combined = [
+        ...(ownedEvents || []),
+        ...memberEvents.filter(e => !ownedIds.has(e.id))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      setEvents(combined)
       setLoading(false)
     }
     load()

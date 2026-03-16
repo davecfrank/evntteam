@@ -58,20 +58,21 @@ export default function Login() {
         sessionStorage.removeItem('evnt_invite_event_name')
         sessionStorage.removeItem('evnt_invite_redirect')
 
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
+        // Use the email from the form directly (getUser() can fail if email confirmation is required)
+        const userEmail = email.trim().toLowerCase()
+        if (userEmail) {
           // Check if already a member (pre-added by email invite)
           const { data: existing } = await supabase
             .from('event_members')
             .select('id')
             .eq('event_id', pendingEventId)
-            .eq('user_email', authUser.email)
+            .eq('user_email', userEmail)
             .maybeSingle()
 
           if (!existing) {
             await supabase.from('event_members').insert({
               event_id: pendingEventId,
-              user_email: authUser.email,
+              user_email: userEmail,
               role: 'Member',
               role_level: 'member',
             })
