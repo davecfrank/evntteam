@@ -2426,6 +2426,7 @@ function EventPage() {
         'bill_splits', 'bills',
         'member_flights', 'member_lodging', 'member_rental_cars',
         'event_announcements', 'event_members',
+        'chat_messages', 'chat_groups',
       ]
       for (const table of tables) {
         await supabase.from(table).delete().eq('event_id', eventId)
