@@ -2863,17 +2863,13 @@ function EventPage() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {(() => {
-                const actions = tabs.filter(t => t.id !== 'overview')
-                const isOdd = actions.length % 2 !== 0
-                return actions.map((action, i) => (
-                  <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', ...(isOdd && i === actions.length - 1 ? { gridColumn: '1 / -1', maxWidth: 'calc(50% - 6px)', margin: '0 auto' } : {}) }}>
-                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>{action.icon}</div>
-                    <div style={{ fontSize: '13px', fontWeight: 700 }}>{action.label}</div>
-                  </div>
-                ))
-              })()}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+              {tabs.filter(t => t.id !== 'overview').map(action => (
+                <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', width: 'calc(50% - 6px)', boxSizing: 'border-box' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>{action.icon}</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700 }}>{action.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
