@@ -16,6 +16,7 @@ function Profile() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { canInstall, isIOS, isStandalone, triggerInstall } = usePWAInstall()
+  const [showIOSInstall, setShowIOSInstall] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -472,7 +473,7 @@ function Profile() {
       {/* Install App */}
       {(canInstall || (isIOS && !isStandalone)) && (
         <div style={{ padding: '0 24px', marginBottom: '12px' }}>
-          <button onClick={isIOS ? undefined : triggerInstall} style={{
+          <button onClick={isIOS ? () => setShowIOSInstall(true) : triggerInstall} style={{
             width: '100%', background: 'rgba(255, 77, 0, 0.08)',
             border: '1px solid rgba(255, 77, 0, 0.3)', borderRadius: '12px',
             padding: '14px', fontSize: '14px', fontWeight: 600,
@@ -481,6 +482,39 @@ function Profile() {
           }}>
             <span style={{ fontSize: '18px' }}>📲</span> Install App
           </button>
+        </div>
+      )}
+
+      {/* iOS Install Instructions Modal */}
+      {showIOSInstall && (
+        <div onClick={() => setShowIOSInstall(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#161616', borderRadius: '24px 24px 0 0', padding: '28px 24px 40px', width: '100%', maxWidth: '500px' }}>
+            <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: '#333', margin: '0 auto 24px' }} />
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📲</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#F0F0F0', marginBottom: '8px' }}>Install evnt.team</div>
+              <div style={{ fontSize: '14px', color: '#888' }}>Add to your home screen for the full app experience</div>
+            </div>
+            <div style={{ background: '#0A0A0A', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>1</div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap the Share button</div>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                    The <svg style={{ display: 'inline', verticalAlign: 'middle' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4D00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> icon at the bottom of Safari
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>2</div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap "Add to Home Screen"</div>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>Then tap "Add" in the top right</div>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setShowIOSInstall(false)} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Got it</button>
+          </div>
         </div>
       )}
 
