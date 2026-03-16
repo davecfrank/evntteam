@@ -180,7 +180,11 @@ function Profile() {
   }
 
   async function dismissImport(importId: string) {
-    await supabase.from('pending_imports').delete().eq('id', importId)
+    await fetch('/api/delete-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ importId, userId: user?.id }),
+    })
     setImports(prev => prev.filter((i: any) => i.id !== importId))
   }
 

@@ -2538,11 +2538,11 @@ function EventPage() {
 
 
   async function removeMember(member: any) {
-    if (member.id) {
-      await supabase.from('event_members').delete().eq('id', member.id)
-    } else {
-      await supabase.from('event_members').delete().eq('event_id', eventId).eq('user_email', member.user_email)
-    }
+    await fetch('/api/remove-member', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId, memberId: member.id || null, memberEmail: member.user_email, userId: user?.id }),
+    })
     setMembers(prev => prev.filter(m => m.user_email !== member.user_email))
     setConfirmRemove(null)
   }
