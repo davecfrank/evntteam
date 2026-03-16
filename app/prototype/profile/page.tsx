@@ -167,7 +167,7 @@ function Profile() {
   }
 
   async function dismissImport(importId: string) {
-    await supabase.from('pending_imports').update({ status: 'dismissed' }).eq('id', importId)
+    await supabase.from('pending_imports').delete().eq('id', importId)
     setImports(prev => prev.filter((i: any) => i.id !== importId))
   }
 
@@ -452,7 +452,7 @@ function Profile() {
                   ) : (
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => setAssigningId(imp.id)} style={{ flex: 1, background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '10px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Assign to Event</button>
-                      <button onClick={() => dismissImport(imp.id)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#666', cursor: 'pointer' }}>Dismiss</button>
+                      <button onClick={() => dismissImport(imp.id)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '8px', padding: '10px 16px', fontSize: '13px', color: '#FF4D00', cursor: 'pointer' }}>🗑️ Delete</button>
                     </div>
                   )}
                 </div>
