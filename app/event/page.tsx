@@ -2549,8 +2549,12 @@ function EventPage() {
 
   async function updateRsvp(status: 'going' | 'maybe' | 'not_going') {
     if (!myMembership) return
-    const { error } = await supabase.from('event_members').update({ rsvp_status: status }).eq('id', myMembership.id)
-    if (!error) {
+    const res = await fetch('/api/update-rsvp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ membershipId: myMembership.id, userId: user?.id, status }),
+    })
+    if (res.ok) {
       setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
       if (status === 'going') signalHighIntent()
     }
