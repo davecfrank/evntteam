@@ -2655,11 +2655,11 @@ function EventPage() {
   const tabs = [
     { id: 'overview', icon: '🏠', label: 'Overview' },
     { id: 'itinerary', icon: '🗓', label: 'Itinerary' },
-    ...((event?.requires_flights || event?.requires_lodging) ? [{ id: 'travel', icon: '🧳', label: 'Travel' }] : []),
-    ...(event?.payments_enabled !== false ? [{ id: 'payments', icon: '💰', label: 'Payments' }] : []),
-    ...(event?.voting_enabled !== false ? [{ id: 'vote', icon: '🗳', label: 'Vote' }] : []),
-    { id: 'chat', icon: '💬', label: 'Chat' },
     { id: 'photos', icon: '📸', label: 'Photos' },
+    { id: 'chat', icon: '💬', label: 'Chat' },
+    ...(event?.voting_enabled !== false ? [{ id: 'vote', icon: '🗳', label: 'Vote' }] : []),
+    ...(event?.payments_enabled !== false ? [{ id: 'payments', icon: '💰', label: 'Payments' }] : []),
+    ...((event?.requires_flights || event?.requires_lodging) ? [{ id: 'travel', icon: '🧳', label: 'Travel' }] : []),
   ]
 
   if (loading) return (
@@ -2865,7 +2865,7 @@ function EventPage() {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
               {tabs.filter(t => t.id !== 'overview').map(action => (
-                <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', width: 'calc(50% - 6px)', boxSizing: 'border-box' }}>
+                <div key={action.id} onClick={() => setActiveTab(action.id)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '20px', textAlign: 'center', cursor: 'pointer', width: 'calc(50% - 6px)', flexShrink: 0, boxSizing: 'border-box' }}>
                   <div style={{ fontSize: '28px', marginBottom: '8px' }}>{action.icon}</div>
                   <div style={{ fontSize: '13px', fontWeight: 700 }}>{action.label}</div>
                 </div>
