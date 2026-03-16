@@ -2144,6 +2144,7 @@ function EventPage() {
   const [myProfile, setMyProfile] = useState<any>(null)
   const [pendingImportsCount, setPendingImportsCount] = useState(0)
   const [isDesktop, setIsDesktop] = useState(false)
+  const [descExpanded, setDescExpanded] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDestination, setEditDestination] = useState('')
@@ -2385,6 +2386,44 @@ function EventPage() {
   }
 
   const [editError, setEditError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function deleteEvent() {
+    if (!eventId) return
+    setDeleting(true)
+    try {
+      // 1. Delete photo-related data (no event_id column — need photo IDs first)
+      const { data: photos } = await supabase.from('event_photos').select('id').eq('event_id', eventId)
+      if (photos && photos.length > 0) {
+        const photoIds = photos.map(p => p.id)
+        const { data: comments } = await supabase.from('photo_comments').select('id').in('photo_id', photoIds)
+        if (comments && comments.length > 0) {
+          await supabase.from('comment_reactions').delete().in('comment_id', comments.map(c => c.id))
+        }
+        await supabase.from('photo_comments').delete().in('photo_id', photoIds)
+        await supabase.from('photo_reactions').delete().in('photo_id', photoIds)
+      }
+      // 2. Delete tables with event_id column
+      const tables = [
+        'event_photos', 'item_votes', 'itinerary_items',
+        'bill_splits', 'bills',
+        'member_flights', 'member_lodging', 'member_rental_cars',
+        'event_announcements', 'event_members',
+      ]
+      for (const table of tables) {
+        await supabase.from(table).delete().eq('event_id', eventId)
+      }
+      // 3. Delete the event itself
+      const { error } = await supabase.from('events').delete().eq('id', eventId)
+      if (error) throw error
+      router.push('/dashboard')
+    } catch (err: any) {
+      setEditError('Failed to delete event: ' + err.message)
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
 
   async function saveEventEdit() {
     if (!editName.trim()) return
@@ -2474,7 +2513,21 @@ function EventPage() {
           <h1 style={{ fontSize: '28px', fontWeight: 900, margin: 0 }}>{event?.name}</h1>
           {(isHost || isCohost) && <button onClick={openEditModal} style={{ background: '#FF4D00', border: 'none', borderRadius: '8px', padding: '6px 14px', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(255, 77, 0, 0.35)', whiteSpace: 'nowrap' }}>Edit Event</button>}
         </div>
-        {event?.description && <div style={{ fontSize: '14px', color: '#999', lineHeight: 1.5, marginBottom: '12px', whiteSpace: 'pre-wrap' }}>{event.description}</div>}
+        {event?.description && (() => {
+          const isLong = event.description.length > 120
+          return (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '14px', color: '#999', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflow: 'hidden', maxHeight: !isLong || descExpanded ? 'none' : '3.2em' }}>
+                {event.description}
+              </div>
+              {isLong && (
+                <button onClick={() => setDescExpanded(!descExpanded)} style={{ background: 'none', border: 'none', padding: '4px 0 0', fontSize: '13px', fontWeight: 600, color: '#FF4D00', cursor: 'pointer' }}>
+                  {descExpanded ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
+          )
+        })()}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
           {event?.destination && <div style={{ fontSize: '13px', color: '#888' }}>📍 {event.destination}</div>}
           {event?.dates && <div style={{ fontSize: '13px', color: '#888' }}>📅 {(() => {
@@ -2764,6 +2817,47 @@ function EventPage() {
               {editSaving ? 'Saving...' : 'Save Changes →'}
             </button>
             <button onClick={() => setShowEditModal(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '14px', fontSize: '14px' }}>Cancel</button>
+
+            {/* Delete Event — host only */}
+            {isHost && (
+              <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #2A2A2A' }}>
+                {!showDeleteConfirm ? (
+                  <button onClick={() => setShowDeleteConfirm(true)} style={{ width: '100%', background: 'none', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 600, color: '#ff6b6b', cursor: 'pointer' }}>
+                    Delete Event
+                  </button>
+                ) : (
+                  <div style={{ background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '14px', padding: '18px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#ff6b6b', marginBottom: '8px' }}>Delete this event?</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px', lineHeight: '1.5' }}>This will permanently delete the event and all associated data (members, travel, photos, itinerary, bills). This cannot be undone.</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={deleteEvent} disabled={deleting} style={{ flex: 1, background: deleting ? '#555' : '#ff4444', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer' }}>
+                        {deleting ? 'Deleting...' : 'Yes, Delete Forever'}
+                      </button>
+                      <button onClick={() => setShowDeleteConfirm(false)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {isCohost && !isHost && (
+              <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #2A2A2A' }}>
+                <button onClick={() => setShowDeleteConfirm(true)} style={{ width: '100%', background: 'none', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '12px', padding: '14px', fontSize: '14px', fontWeight: 600, color: '#ff6b6b', cursor: 'pointer' }}>
+                  Delete Event
+                </button>
+                {showDeleteConfirm && (
+                  <div style={{ background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '14px', padding: '18px', marginTop: '10px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#ff6b6b', marginBottom: '8px' }}>Delete this event?</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginBottom: '16px', lineHeight: '1.5' }}>This will permanently delete the event and all associated data (members, travel, photos, itinerary, bills). This cannot be undone.</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={deleteEvent} disabled={deleting} style={{ flex: 1, background: deleting ? '#555' : '#ff4444', border: 'none', borderRadius: '10px', padding: '12px', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer' }}>
+                        {deleting ? 'Deleting...' : 'Yes, Delete Forever'}
+                      </button>
+                      <button onClick={() => setShowDeleteConfirm(false)} style={{ background: 'none', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 20px', fontSize: '13px', color: '#888', cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

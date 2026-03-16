@@ -1,6 +1,6 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { supabase } from '../../lib/supabase'
 import { usePWAInstall } from '../components/PWAInstallProvider'
 
@@ -17,6 +17,16 @@ function Profile() {
   const searchParams = useSearchParams()
   const { canInstall, isIOS, isStandalone, triggerInstall } = usePWAInstall()
   const [showIOSInstall, setShowIOSInstall] = useState(false)
+
+  // Detect if iOS user is NOT in Safari (Chrome, Firefox, etc. can't install PWAs)
+  const isIOSNotSafari = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent
+    const isIOSDevice = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    if (!isIOSDevice) return false
+    return /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)
+  }, [])
+
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<any[]>([])
@@ -355,7 +365,7 @@ function Profile() {
           </div>
         ) : (
           filtered.map(event => (
-            <div key={event.id} onClick={() => router.push('/itinerary')} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div key={event.id} onClick={() => router.push(`/event?id=${event.id}`)} style={{ background: '#161616', border: '1px solid #2A2A2A', borderRadius: '14px', padding: '18px', marginBottom: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', flexShrink: 0 }}>
                 {getEmoji(event.event_type)}
               </div>
@@ -495,25 +505,67 @@ function Profile() {
               <div style={{ fontSize: '20px', fontWeight: 800, color: '#F0F0F0', marginBottom: '8px' }}>Install evnt.team</div>
               <div style={{ fontSize: '14px', color: '#888' }}>Add to your home screen for the full app experience</div>
             </div>
-            <div style={{ background: '#0A0A0A', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>1</div>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap the Share button</div>
-                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                    The <svg style={{ display: 'inline', verticalAlign: 'middle' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF4D00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> icon at the bottom of Safari
+
+            {isIOSNotSafari ? (
+              <div style={{ background: '#0A0A0A', borderRadius: '14px', padding: '20px', marginBottom: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🧭</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#F0F0F0', marginBottom: '8px' }}>Open in Safari first</div>
+                <div style={{ fontSize: '13px', color: '#888', lineHeight: '1.5' }}>
+                  PWA installation only works in Safari on iOS. Copy the link below and paste it in Safari to install.
+                </div>
+                <button onClick={() => { navigator.clipboard.writeText(window.location.href) }} style={{ marginTop: '14px', background: 'rgba(255,77,0,0.15)', border: '1px solid rgba(255,77,0,0.3)', borderRadius: '10px', padding: '10px 20px', fontSize: '13px', fontWeight: 700, color: '#FF4D00', cursor: 'pointer' }}>
+                  Copy Link
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: '#0A0A0A', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>1</div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Close this popup</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>Then look for Safari's toolbar at the bottom of your screen</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>2</div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap the Share button <svg style={{ display: 'inline', verticalAlign: 'middle' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF4D00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>The square icon with an arrow at the bottom of Safari</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>3</div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Scroll down & tap "Add to Home Screen"</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>You may need to scroll down in the share menu to find it</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>4</div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap "Add" in the top right</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>The app icon will appear on your home screen</div>
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: '#FF4D00', flexShrink: 0 }}>2</div>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#F0F0F0' }}>Tap "Add to Home Screen"</div>
-                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>Then tap "Add" in the top right</div>
+            )}
+
+            {/* Visual pointer to Safari's toolbar */}
+            {!isIOSNotSafari && (
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', color: '#555', fontWeight: 600 }}>Look for this icon in Safari's bottom toolbar</div>
+                <div style={{ marginTop: '8px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF4D00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
                 </div>
+                <div style={{ marginTop: '4px', fontSize: '20px', animation: 'bounce 1.5s infinite' }}>↓</div>
               </div>
-            </div>
-            <button onClick={() => setShowIOSInstall(false)} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>Got it</button>
+            )}
+
+            <button onClick={() => setShowIOSInstall(false)} style={{ width: '100%', background: '#FF4D00', border: 'none', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+              {isIOSNotSafari ? 'Got it' : 'Close & Follow Steps Above'}
+            </button>
+
+            <style>{`@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }`}</style>
           </div>
         </div>
       )}
