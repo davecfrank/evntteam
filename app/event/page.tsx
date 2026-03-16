@@ -2205,62 +2205,21 @@ function EventPage() {
       if (!user) { router.push('/'); return }
       setUser(user)
       if (!eventId) { router.push('/dashboard'); return }
-      const { data: eventData } = await supabase.from('events').select('*').eq('id', eventId).single()
-      if (!eventData) { router.push('/dashboard'); return }
-      setEvent(eventData)
-      const { data: membersData } = await supabase.from('event_members').select('*').eq('event_id', eventId)
-      // Deduplicate by user_email (keep first occurrence)
-      const seen = new Set<string>()
-      const uniqueMembers = (membersData || []).filter((m: any) => {
-        if (seen.has(m.user_email)) return false
-        seen.add(m.user_email)
-        return true
-      })
-      setMembers(uniqueMembers)
-      let flightsData: any[] = []
-      let lodgingsData: any[] = []
-      if (eventData.requires_flights) {
-        const { data } = await supabase.from('member_flights').select('*').eq('event_id', eventId)
-        flightsData = data || []
-        setFlights(flightsData)
-      }
-      if (eventData.requires_lodging) {
-        const { data } = await supabase.from('member_lodging').select('*').eq('event_id', eventId)
-        lodgingsData = data || []
-        setLodgings(lodgingsData)
-      }
-      // Build profile lookup map — collect all known user_ids
-      const userIds = new Set<string>()
-      const emailToId: Record<string, string> = {}
-      userIds.add(user.id)
-      if (user.email) emailToId[user.email] = user.id
-      if (eventData.owner_id) userIds.add(eventData.owner_id)
-      uniqueMembers.forEach((m: any) => { if (m.user_id) { userIds.add(m.user_id); if (m.user_email) emailToId[m.user_email] = m.user_id } })
-      flightsData.forEach((f: any) => { if (f.user_id) { userIds.add(f.user_id); if (f.user_email) emailToId[f.user_email] = f.user_id } })
-      lodgingsData.forEach((l: any) => { if (l.user_id) { userIds.add(l.user_id); if (l.user_email) emailToId[l.user_email] = l.user_id } })
-      // Also check photos and chat messages for user_id/email pairs
-      const { data: photoUsers } = await supabase.from('event_photos').select('user_id, user_email').eq('event_id', eventId)
-      if (photoUsers) photoUsers.forEach((p: any) => { if (p.user_id) { userIds.add(p.user_id); if (p.user_email) emailToId[p.user_email] = p.user_id } })
-      const { data: chatUsers } = await supabase.from('chat_messages').select('user_id, user_email').eq('event_id', eventId)
-      if (chatUsers) chatUsers.forEach((m: any) => { if (m.user_id) { userIds.add(m.user_id); if (m.user_email) emailToId[m.user_email] = m.user_id } })
-      // Fetch announcements
-      const { data: announcementsData } = await supabase.from('event_announcements').select('*').eq('event_id', eventId).order('created_at', { ascending: false })
-      setAnnouncements(announcementsData || [])
-      if (announcementsData) announcementsData.forEach((a: any) => { if (a.user_id) { userIds.add(a.user_id); if (a.user_email) emailToId[a.user_email] = a.user_id } })
-      // Bulk fetch profiles
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', Array.from(userIds))
-      const map: Record<string, string> = {}
-      if (profiles) profiles.forEach((p: any) => { if (p.full_name) map[p.id] = p.full_name })
-      // Cross-reference: map emails to names via emailToId
-      Object.entries(emailToId).forEach(([email, id]) => { if (map[id]) map[email] = map[id] })
-      setProfileMap(map)
-      setEmailToIdMap(emailToId)
 
-      // Fetch own profile for avatar + pending imports count
-      const { data: myProfileData } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
-      if (myProfileData) setMyProfile(myProfileData)
-      const { count } = await supabase.from('pending_imports').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending')
-      setPendingImportsCount(count || 0)
+      // Fetch all event data via server API (bypasses RLS)
+      const res = await fetch(`/api/event-data?eventId=${eventId}&userId=${user.id}&userEmail=${encodeURIComponent(user.email!)}`)
+      if (!res.ok) { router.push('/dashboard'); return }
+      const data = await res.json()
+
+      setEvent(data.event)
+      setMembers(data.members)
+      setFlights(data.flights)
+      setLodgings(data.lodgings)
+      setAnnouncements(data.announcements)
+      setProfileMap(data.profileMap)
+      setEmailToIdMap(data.emailToIdMap)
+      if (data.myProfile) setMyProfile(data.myProfile)
+      setPendingImportsCount(data.pendingImportsCount)
 
       setLoading(false)
     }
