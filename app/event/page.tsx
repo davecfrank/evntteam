@@ -2267,15 +2267,15 @@ function PhotosTab({ eventId, user, event, members, getName, canInteract }: { ev
 
       {/* Lightbox */}
       {lightbox !== null && currentPhoto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 300, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
           {/* Top bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', flexShrink: 0 }}>
-            <button onClick={() => { setLightbox(null); setConfirmDelete(null); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ background: 'none', border: 'none', color: '#F0F0F0', fontSize: '16px', fontWeight: 700, cursor: 'pointer', padding: '8px' }}>✕ Close</button>
-            <div style={{ fontSize: '13px', color: '#666' }}>{lightbox + 1} / {photos.length}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'env(safe-area-inset-top, 12px) 20px 12px', flexShrink: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10 }}>
+            <button onClick={() => { setLightbox(null); setConfirmDelete(null); setShowComments(false); setReplyTo(null); setNewComment(''); setMentionQuery(null) }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '10px', color: '#F0F0F0', fontSize: '14px', fontWeight: 700, cursor: 'pointer', padding: '10px 16px' }}>✕ Close</button>
+            <div style={{ fontSize: '13px', color: '#888', fontWeight: 700 }}>{lightbox + 1} / {photos.length}</div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => downloadPhoto(currentPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#F0F0F0', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>⬇</button>
+              <button onClick={() => downloadPhoto(currentPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '10px', color: '#F0F0F0', fontSize: '16px', cursor: 'pointer', padding: '10px 14px' }}>⬇️</button>
               {(currentPhoto.user_id === user?.id || isHost || isCohost) && (
-                <button onClick={() => setConfirmDelete(currentPhoto.id)} style={{ background: 'rgba(255,77,0,0.15)', border: 'none', borderRadius: '8px', color: '#FF4D00', fontSize: '14px', cursor: 'pointer', padding: '8px 12px' }}>🗑</button>
+                <button onClick={() => setConfirmDelete(currentPhoto.id)} style={{ background: 'rgba(255,77,0,0.15)', border: 'none', borderRadius: '10px', color: '#FF4D00', fontSize: '16px', cursor: 'pointer', padding: '10px 14px' }}>🗑</button>
               )}
             </div>
           </div>
