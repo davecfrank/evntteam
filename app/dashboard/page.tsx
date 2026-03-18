@@ -106,7 +106,11 @@ export default function Dashboard() {
     return !isNaN(d.getTime()) && d < new Date()
   }
 
-  const upcomingEvents = events.filter(e => !isEventPast(e))
+  const upcomingEvents = events.filter(e => !isEventPast(e)).sort((a: any, b: any) => {
+    const dateA = new Date(a.dates || '9999-12-31').getTime()
+    const dateB = new Date(b.dates || '9999-12-31').getTime()
+    return dateA - dateB
+  })
   const completedEvents = events.filter(e => isEventPast(e))
   const [showCompleted, setShowCompleted] = useState(false)
 
