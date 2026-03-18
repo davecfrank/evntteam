@@ -123,7 +123,7 @@ export default function Login() {
         Evnt<span style={{ color: '#FF4D00' }}>.Team</span>
       </h1>
       <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
-        Plan unforgettable experiences with your crew
+        Plan unforgettable experiences with your team
       </p>
 
       {(canInstall || (isIOS && !isStandalone)) && (

@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "evnt.team",
-  description: "Plan unforgettable experiences with your crew",
+  description: "Plan unforgettable experiences with your team",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "evnt.team",
-    description: "Plan unforgettable experiences with your crew",
+    description: "Plan unforgettable experiences with your team",
     url: "https://evnt.team",
     siteName: "evnt.team",
     type: "website",

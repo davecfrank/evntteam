@@ -1,7 +1,7 @@
 {
   "name": "evnt.team",
   "short_name": "evnt",
-  "description": "Plan unforgettable experiences with your crew",
+  "description": "Plan unforgettable experiences with your team",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
