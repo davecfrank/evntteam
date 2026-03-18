@@ -2651,14 +2651,29 @@ function EventPage() {
   const [editError, setEditError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [showNotifPrompt, setShowNotifPrompt] = useState(false)
 
-  // Show notification prompt if permission not yet granted
+  const [notifType, setNotifType] = useState<'prompt' | 'install' | null>(null)
+
+  // Show notification prompt or install prompt
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      // Show prompt after a short delay so the page loads first
-      const timer = setTimeout(() => setShowNotifPrompt(true), 2000)
+    if (typeof window === 'undefined') return
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    const hasNotifAPI = 'Notification' in window
+
+    if (hasNotifAPI && Notification.permission === 'default') {
+      // Can prompt for notifications (desktop, Android, or installed iOS PWA)
+      const timer = setTimeout(() => setNotifType('prompt'), 2000)
       return () => clearTimeout(timer)
+    } else if (!hasNotifAPI && !isStandalone) {
+      // iOS Safari without PWA installed — need to install first
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      if (isIOS) {
+        const dismissed = sessionStorage.getItem('evnt_install_dismissed')
+        if (!dismissed) {
+          const timer = setTimeout(() => setNotifType('install'), 2000)
+          return () => clearTimeout(timer)
+        }
+      }
     }
   }, [])
 
@@ -2821,7 +2836,7 @@ function EventPage() {
         </div>
       )}
 
-      {showNotifPrompt && (
+      {notifType === 'prompt' && (
         <div style={{ padding: '12px 24px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(255,77,0,0.08)', border: '1px solid rgba(255,77,0,0.2)', borderRadius: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
@@ -2832,9 +2847,27 @@ function EventPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => { requestPushPermission(); setShowNotifPrompt(false) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF4D00', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Enable</button>
-              <button onClick={() => setShowNotifPrompt(false)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Later</button>
+              <button onClick={() => { requestPushPermission(); setNotifType(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF4D00', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Enable</button>
+              <button onClick={() => setNotifType(null)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Later</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {notifType === 'install' && (
+        <div style={{ padding: '12px 24px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+          <div style={{ padding: '14px 16px', background: 'rgba(255,77,0,0.08)', border: '1px solid rgba(255,77,0,0.2)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '20px' }}>📲</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0' }}>Install for notifications</div>
+                <div style={{ fontSize: '11px', color: '#888' }}>Add to Home Screen to get push notifications</div>
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: '#999', lineHeight: 1.5, marginBottom: '12px' }}>
+              Tap <span style={{ fontWeight: 700, color: '#F0F0F0' }}>Share</span> (the square with arrow) → <span style={{ fontWeight: 700, color: '#F0F0F0' }}>Add to Home Screen</span>
+            </div>
+            <button onClick={() => { setNotifType(null); sessionStorage.setItem('evnt_install_dismissed', '1') }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Got it</button>
           </div>
         </div>
       )}
