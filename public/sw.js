@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'evnt-v1'
-const STATIC_CACHE = 'evnt-static-v1'
-const DYNAMIC_CACHE = 'evnt-dynamic-v1'
+const CACHE_VERSION = 'evnt-v2'
+const STATIC_CACHE = 'evnt-static-v2'
+const DYNAMIC_CACHE = 'evnt-dynamic-v2'
 
 const APP_SHELL = [
   '/offline.html',
@@ -49,9 +49,9 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Next.js static assets (content-hashed) → cache-first
+  // Next.js static assets → network-first (ensures fresh JS on new deploys)
   if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(cacheFirst(request))
+    event.respondWith(networkFirst(request))
     return
   }
 
