@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useCallback } from 'react'
+import { supabase } from '../../lib/supabase'
 
 // VAPID public key — generate with: npx web-push generate-vapid-keys
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
@@ -23,10 +24,17 @@ async function ensureSubscription() {
       })
     }
     if (subscription) {
+      // Get current user ID to associate with subscription
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       await fetch('/api/push-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription.toJSON()),
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          userId: user.id,
+        }),
       })
     }
   } catch (err) {

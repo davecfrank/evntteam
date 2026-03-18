@@ -932,6 +932,21 @@ function PaymentsTab({ eventId, user, members, event, getName, isDesktop, canInt
       if (newBill) {
         const newSplits = selectedMembers.map(email => ({ bill_id: newBill.id, user_email: email, amount: splitAmounts[email], is_paid: false }))
         await supabase.from('bill_splits').insert(newSplits)
+
+        // Notify members about payment assignment
+        fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId,
+            type: 'payment',
+            title: `💰 New bill: ${title.trim()}`,
+            body: `You owe your share of $${amount.toFixed(2)}`,
+            excludeUserId: user.id,
+            sendEmail: true,
+            emailSubject: `💰 You've been assigned a payment in ${event?.name}`,
+          }),
+        }).catch(() => {})
       }
     }
     setSaving(false)
@@ -1578,6 +1593,20 @@ function VoteTab({ eventId, user, members, event, canInteract }: { eventId: stri
       setPollVotes(prev => ({ ...prev, [data.poll.id]: [] }))
     }
     setPollQuestion(''); setPollOptionInputs(['', '']); setShowCreatePoll(false); setPollSaving(false)
+
+    // Notify members about new poll
+    fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId,
+        type: 'poll',
+        title: '🗳 New poll',
+        body: pollQuestion.trim(),
+        excludeUserId: user.id,
+        sendEmail: false,
+      }),
+    }).catch(() => {})
   }
 
   async function castPollVote(pollId: string, optionId: string) {
@@ -2489,6 +2518,21 @@ function EventPage() {
     setPostContent('')
     setShowPostForm(false)
     setPosting(false)
+
+    // Send push + email notification to all members
+    fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId,
+        type: 'announcement',
+        title: `📢 ${myProfile?.full_name || 'Someone'} posted an update`,
+        body: postContent.trim().slice(0, 100),
+        excludeUserId: user.id,
+        sendEmail: true,
+        emailSubject: `📢 New update in ${event?.name}`,
+      }),
+    }).catch(() => {})
   }
 
   async function deleteAnnouncement(id: string) {
@@ -2561,6 +2605,21 @@ function EventPage() {
     if (res.ok) {
       setMembers(prev => prev.map(m => m.id === myMembership.id ? { ...m, rsvp_status: status } : m))
       if (status === 'going') signalHighIntent()
+
+      // Notify host about RSVP change
+      const statusEmoji = status === 'going' ? '✅' : status === 'maybe' ? '🤔' : '❌'
+      const statusLabel = status === 'going' ? 'is going' : status === 'maybe' ? 'is maybe' : 'is not going'
+      fetch('/api/send-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          type: 'rsvp',
+          title: `${statusEmoji} ${myProfile?.full_name || 'Someone'} ${statusLabel}`,
+          excludeUserId: user?.id,
+          sendEmail: false,
+        }),
+      }).catch(() => {})
     }
   }
 
