@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@react-email/components": "^1.0.10",
     "@supabase/supabase-js": "^2.99.0",
     "nanoid": "^5.1.6",
     "next": "16.1.6",

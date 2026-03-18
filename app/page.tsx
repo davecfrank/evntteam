@@ -21,6 +21,7 @@ export default function Login() {
     return /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)
   }, [])
   const [inviteEventName, setInviteEventName] = useState('')
+  const [inviteHostName, setInviteHostName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -31,9 +32,11 @@ export default function Login() {
   useEffect(() => {
     const eid = sessionStorage.getItem('evnt_invite_event_id')
     const ename = sessionStorage.getItem('evnt_invite_event_name')
+    const hname = sessionStorage.getItem('evnt_invite_host_name')
     if (eid) {
       setIsSignUp(true)
       if (ename) setInviteEventName(ename)
+      if (hname) setInviteHostName(hname)
     }
   }, [])
 
@@ -42,10 +45,20 @@ export default function Login() {
     setError('')
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        if (data.user && fullName.trim()) {
-          await supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName.trim() })
+        const { error: signUpError } = await supabase.auth.signUp({ email, password })
+        if (signUpError) {
+          if (signUpError.message?.includes('already registered')) {
+            setIsSignUp(false)
+            throw new Error('An account with this email already exists. Please sign in.')
+          }
+          throw signUpError
+        }
+        // Auto-login after signup to guarantee session is set
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) throw signInError
+        const { data: { user: confirmedUser } } = await supabase.auth.getUser()
+        if (confirmedUser && fullName.trim()) {
+          await supabase.from('profiles').upsert({ id: confirmedUser.id, full_name: fullName.trim() })
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -57,6 +70,7 @@ export default function Login() {
         sessionStorage.removeItem('evnt_invite_event_id')
         sessionStorage.removeItem('evnt_invite_event_name')
         sessionStorage.removeItem('evnt_invite_redirect')
+        sessionStorage.removeItem('evnt_invite_host_name')
 
         // Use the email from the form directly (getUser() can fail if email confirmation is required)
         const userEmail = email.trim().toLowerCase()
@@ -89,7 +103,12 @@ export default function Login() {
         }
       }
     } catch (err: any) {
-      setError(err.message)
+      const message = err.message || 'Something went wrong'
+      if (message.includes('fetch') || message.includes('network') || message.includes('Failed to fetch')) {
+        setError('Network error. Please check your connection and try again.')
+      } else {
+        setError(message)
+      }
       setLoading(false)
     }
   }
@@ -204,7 +223,11 @@ export default function Login() {
 
         {inviteEventName && (
           <p style={{ fontSize: '14px', color: '#999', marginBottom: '24px', lineHeight: 1.4 }}>
-            {isSignUp ? 'Sign up' : 'Sign in'} to join <span style={{ color: '#FF4D00', fontWeight: 700 }}>{inviteEventName}</span>
+            {inviteHostName
+              ? <><span style={{ color: '#F0F0F0', fontWeight: 600 }}>{inviteHostName}</span> invited you to join </>
+              : <>{isSignUp ? 'Sign up' : 'Sign in'} to join </>
+            }
+            <span style={{ color: '#FF4D00', fontWeight: 700 }}>{inviteEventName}</span>
           </p>
         )}
 

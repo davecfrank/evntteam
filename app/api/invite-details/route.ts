@@ -29,5 +29,16 @@ export async function GET(req: NextRequest) {
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
 
-  return NextResponse.json({ event, memberCount: (count || 0) + 1 })
+  // Get host name
+  let hostName: string | null = null
+  if (event.owner_id) {
+    const { data: hostProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('id', event.owner_id)
+      .single()
+    hostName = hostProfile?.full_name || null
+  }
+
+  return NextResponse.json({ event, memberCount: (count || 0) + 1, hostName })
 }

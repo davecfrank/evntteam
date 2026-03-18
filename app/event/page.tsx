@@ -2524,6 +2524,10 @@ function EventPage() {
         eventName: event?.name,
         eventId,
         inviterEmail: user?.email,
+        inviterName: myProfile?.full_name || user?.email,
+        eventDate: event?.dates,
+        destination: event?.destination,
+        eventType: event?.event_type,
       }),
     })
 

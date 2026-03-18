@@ -18,6 +18,7 @@ export default function InvitePage() {
   const [error, setError] = useState('')
   const [alreadyMember, setAlreadyMember] = useState(false)
   const [profile, setProfile] = useState<any>(null)
+  const [hostName, setHostName] = useState<string | null>(null)
 
   const eventTypes: Record<string, string> = {
     'Birthday': '🎂',
@@ -37,9 +38,10 @@ export default function InvitePage() {
         setLoading(false)
         return
       }
-      const { event: eventData, memberCount: count } = await res.json()
+      const { event: eventData, memberCount: count, hostName: host } = await res.json()
       setEvent(eventData)
       setMemberCount(count)
+      if (host) setHostName(host)
 
       // Check if user is logged in
       const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -79,6 +81,7 @@ export default function InvitePage() {
         sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
         sessionStorage.setItem('evnt_invite_event_id', eventId)
         sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
+        sessionStorage.setItem('evnt_invite_host_name', hostName || '')
       }
       router.push('/')
       return
@@ -159,7 +162,12 @@ export default function InvitePage() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <div style={{ fontSize: '14px', color: '#666', fontWeight: 600, marginBottom: '12px' }}>You&apos;re invited to</div>
+          <div style={{ fontSize: '14px', color: '#666', fontWeight: 600, marginBottom: '12px' }}>
+            {hostName
+              ? <><span style={{ color: '#F0F0F0', fontWeight: 700 }}>{hostName}</span> invited you to</>
+              : <>You&apos;re invited to</>
+            }
+          </div>
           <div style={{ width: '72px', height: '72px', borderRadius: '18px', background: 'rgba(255,77,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', margin: '0 auto 16px' }}>
             {emoji}
           </div>
@@ -235,6 +243,7 @@ export default function InvitePage() {
                   sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
                   sessionStorage.setItem('evnt_invite_event_id', eventId)
                   sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
+        sessionStorage.setItem('evnt_invite_host_name', hostName || '')
                 }
                 router.push('/')
               }}
@@ -250,6 +259,7 @@ export default function InvitePage() {
                     sessionStorage.setItem('evnt_invite_redirect', `/invite/${eventId}`)
                     sessionStorage.setItem('evnt_invite_event_id', eventId)
                     sessionStorage.setItem('evnt_invite_event_name', event?.name || '')
+        sessionStorage.setItem('evnt_invite_host_name', hostName || '')
                   }
                   router.push('/')
                 }}
