@@ -2657,23 +2657,30 @@ function EventPage() {
   // Show notification prompt or install prompt
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
-    const hasNotifAPI = 'Notification' in window
+    // Don't show if user already dismissed this session
+    if (sessionStorage.getItem('evnt_notif_dismissed')) return
 
-    if (hasNotifAPI && Notification.permission === 'default') {
-      // Can prompt for notifications (desktop, Android, or installed iOS PWA)
+    const hasNotifAPI = 'Notification' in window
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+    if (hasNotifAPI) {
+      const perm = Notification.permission
+      if (perm === 'default') {
+        // Never asked — show prompt
+        const timer = setTimeout(() => setNotifType('prompt'), 2000)
+        return () => clearTimeout(timer)
+      }
+      // If granted or denied, don't show
+    } else if (isIOS && !isStandalone) {
+      // iOS Safari (not installed as PWA) — can't do push, suggest install
+      const timer = setTimeout(() => setNotifType('install'), 2000)
+      return () => clearTimeout(timer)
+    } else if (isIOS && isStandalone) {
+      // Installed iOS PWA but Notification API not available — older iOS
+      // Still show prompt in case the API is available but check failed
       const timer = setTimeout(() => setNotifType('prompt'), 2000)
       return () => clearTimeout(timer)
-    } else if (!hasNotifAPI && !isStandalone) {
-      // iOS Safari without PWA installed — need to install first
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      if (isIOS) {
-        const dismissed = sessionStorage.getItem('evnt_install_dismissed')
-        if (!dismissed) {
-          const timer = setTimeout(() => setNotifType('install'), 2000)
-          return () => clearTimeout(timer)
-        }
-      }
     }
   }, [])
 
@@ -2847,8 +2854,8 @@ function EventPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => { requestPushPermission(); setNotifType(null) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF4D00', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Enable</button>
-              <button onClick={() => setNotifType(null)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Later</button>
+              <button onClick={() => { requestPushPermission(); setNotifType(null); sessionStorage.setItem('evnt_notif_dismissed', '1') }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF4D00', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Enable</button>
+              <button onClick={() => { setNotifType(null); sessionStorage.setItem('evnt_notif_dismissed', '1') }} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Later</button>
             </div>
           </div>
         </div>
