@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { supabase } from '../../lib/supabase'
 import { usePWAInstall } from '../components/PWAInstallProvider'
+import { requestPushPermission } from '../components/PushNotificationManager'
 
 const labelStyle: React.CSSProperties = { fontSize: '11px', fontWeight: 700, color: '#666', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }
 const inputStyle: React.CSSProperties = { width: '100%', background: '#0A0A0A', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#fff', outline: 'none', boxSizing: 'border-box' }
@@ -2650,6 +2651,16 @@ function EventPage() {
   const [editError, setEditError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false)
+
+  // Show notification prompt if permission not yet granted
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      // Show prompt after a short delay so the page loads first
+      const timer = setTimeout(() => setShowNotifPrompt(true), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
 
   async function deleteEvent() {
     if (!eventId || !user) return
@@ -2806,6 +2817,24 @@ function EventPage() {
             ].map(opt => (
               <button key={opt.key} onClick={() => updateRsvp(opt.key as any)} style={{ flex: 1, padding: '10px 8px', borderRadius: '10px', border: `1px solid ${myRsvpStatus === opt.key ? opt.color : '#2A2A2A'}`, background: myRsvpStatus === opt.key ? opt.bg : '#0A0A0A', color: myRsvpStatus === opt.key ? opt.color : '#888', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>{opt.emoji} {opt.label}</button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showNotifPrompt && (
+        <div style={{ padding: '12px 24px', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'rgba(255,77,0,0.08)', border: '1px solid rgba(255,77,0,0.2)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+              <span style={{ fontSize: '20px' }}>🔔</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#F0F0F0' }}>Enable notifications</div>
+                <div style={{ fontSize: '11px', color: '#888' }}>Get updates about this event</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => { requestPushPermission(); setShowNotifPrompt(false) }} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#FF4D00', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Enable</button>
+              <button onClick={() => setShowNotifPrompt(false)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #2A2A2A', background: 'none', color: '#666', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Later</button>
+            </div>
           </div>
         </div>
       )}
