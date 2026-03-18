@@ -2654,34 +2654,17 @@ function EventPage() {
 
   const [notifType, setNotifType] = useState<'prompt' | 'install' | null>(null)
 
-  // Show notification prompt or install prompt
+  // Show notification prompt — always show unless already granted or dismissed
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // Don't show if user already dismissed this session
     if (sessionStorage.getItem('evnt_notif_dismissed')) return
 
-    const hasNotifAPI = 'Notification' in window
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    // If Notification API exists and already granted, skip
+    if ('Notification' in window && Notification.permission === 'granted') return
 
-    if (hasNotifAPI) {
-      const perm = Notification.permission
-      if (perm === 'default') {
-        // Never asked — show prompt
-        const timer = setTimeout(() => setNotifType('prompt'), 2000)
-        return () => clearTimeout(timer)
-      }
-      // If granted or denied, don't show
-    } else if (isIOS && !isStandalone) {
-      // iOS Safari (not installed as PWA) — can't do push, suggest install
-      const timer = setTimeout(() => setNotifType('install'), 2000)
-      return () => clearTimeout(timer)
-    } else if (isIOS && isStandalone) {
-      // Installed iOS PWA but Notification API not available — older iOS
-      // Still show prompt in case the API is available but check failed
-      const timer = setTimeout(() => setNotifType('prompt'), 2000)
-      return () => clearTimeout(timer)
-    }
+    // Show prompt after page loads
+    const timer = setTimeout(() => setNotifType('prompt'), 1500)
+    return () => clearTimeout(timer)
   }, [])
 
   async function deleteEvent() {
