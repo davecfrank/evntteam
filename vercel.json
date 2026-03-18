@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/itinerary-reminder",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/event-countdown",
