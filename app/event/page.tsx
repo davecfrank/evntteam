@@ -2652,19 +2652,18 @@ function EventPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const [notifType, setNotifType] = useState<'prompt' | 'install' | null>(null)
+  const [notifType, setNotifType] = useState<'prompt' | 'install' | null>('prompt')
 
-  // Show notification prompt — always show unless already granted or dismissed
+  // Hide if already granted or dismissed
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (sessionStorage.getItem('evnt_notif_dismissed')) return
-
-    // If Notification API exists and already granted, skip
-    if ('Notification' in window && Notification.permission === 'granted') return
-
-    // Show prompt after page loads
-    const timer = setTimeout(() => setNotifType('prompt'), 1500)
-    return () => clearTimeout(timer)
+    if (sessionStorage.getItem('evnt_notif_dismissed')) {
+      setNotifType(null)
+      return
+    }
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotifType(null)
+    }
   }, [])
 
   async function deleteEvent() {
