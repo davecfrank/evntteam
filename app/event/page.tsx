@@ -2472,6 +2472,20 @@ function EventPage() {
       setPendingImportsCount(data.pendingImportsCount)
 
       setLoading(false)
+
+      // Check for unread chat messages
+      const lastReadKey = `evnt_chat_read_${eventId}`
+      const lastRead = localStorage.getItem(lastReadKey)
+      const { data: latestMsg } = await supabase
+        .from('chat_messages')
+        .select('created_at')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (latestMsg && (!lastRead || new Date(latestMsg.created_at) > new Date(lastRead))) {
+        setHasUnreadChat(true)
+      }
     }
     load()
   }, [eventId])
@@ -2651,6 +2665,7 @@ function EventPage() {
   const [editError, setEditError] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [hasUnreadChat, setHasUnreadChat] = useState(false)
 
   const [notifType, setNotifType] = useState<'prompt' | 'install' | null>('prompt')
 
@@ -2804,8 +2819,17 @@ function EventPage() {
 
       <div style={{ display: 'flex', borderBottom: '1px solid #1A1A1A', overflowX: 'auto', maxWidth: isDesktop ? '900px' : undefined, margin: isDesktop ? '0 auto' : undefined }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ flexShrink: 0, padding: '12px 12px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #FF4D00' : '2px solid transparent', color: activeTab === tab.id ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <button key={tab.id} onClick={() => {
+            setActiveTab(tab.id)
+            if (tab.id === 'chat' && eventId) {
+              localStorage.setItem(`evnt_chat_read_${eventId}`, new Date().toISOString())
+              setHasUnreadChat(false)
+            }
+          }} style={{ flexShrink: 0, padding: '12px 12px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #FF4D00' : '2px solid transparent', color: activeTab === tab.id ? '#FF4D00' : '#666', fontSize: '10px', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.5px', position: 'relative' }}>
             <span style={{ fontSize: '20px', display: 'block', marginBottom: '2px' }}>{tab.icon}</span>{tab.label}
+            {tab.id === 'chat' && hasUnreadChat && activeTab !== 'chat' && (
+              <span style={{ position: 'absolute', top: '8px', right: '4px', width: '8px', height: '8px', borderRadius: '50%', background: '#FF4D00' }} />
+            )}
           </button>
         ))}
       </div>
